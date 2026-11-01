@@ -718,3 +718,33 @@ abbr.term:focus { outline: 2px solid var(--accent); }
 .pb-key { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 4px 0 0 !important; font-size: .75rem; color: var(--text-2); }
 .pb-key span { display: inline-flex; align-items: center; gap: 5px; }
 .pb-key i { width: 9px; height: 9px; border-radius: 2px; }
+
+/* party donations page */
+:root { --party-snp: #e3c600; }
+:root[data-theme="dark"] { --party-snp: #fdf38e; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --party-snp: #fdf38e; } }
+.period-pick { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.period-pick .select[hidden] { display: none; }
+.stat .value.value-sm { font-size: 1.35rem; line-height: 1.25; overflow-wrap: anywhere; }
+.type-key { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: .82rem; color: var(--text-2); margin-bottom: 14px; }
+.type-key span { display: inline-flex; align-items: center; gap: 6px; }
+.type-key i { width: 11px; height: 11px; border-radius: 3px; }
+.type-row { display: grid; grid-template-columns: minmax(120px, 210px) minmax(0, 1fr); gap: 14px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.type-row:last-child { border-bottom: 0; }
+.type-name { font-weight: 600; font-size: .92rem; }
+.type-name small { display: block; font-weight: 400; color: var(--text-2); font-size: .78rem; }
+.type-bar { display: flex; height: 16px; border-radius: 6px; overflow: hidden; background: var(--surface-2); }
+.type-bar span { height: 100%; }
+@media (max-width: 560px) { .type-row { grid-template-columns: minmax(0, 1fr); gap: 6px; } }
+.donor-list { list-style: none; margin: 0; padding: 0; counter-reset: donor; display: grid; }
+.donor-list li { counter-increment: donor; padding: 10px 0 10px 34px; border-bottom: 1px solid var(--border); position: relative; display: grid; gap: 6px; }
+.donor-list li:last-child { border-bottom: 0; }
+.donor-list li::before { content: counter(donor); position: absolute; left: 0; top: 11px; width: 24px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; font-size: .9rem; }
+.donor-list li.muted::before { content: none; }
+.donor-top { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.donor-name { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.donor-name small { display: block; font-weight: 400; color: var(--text-2); font-size: .78rem; }
+.donor-top b { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.donor-bar { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.donor-bar span { display: block; height: 100%; border-radius: 3px; }
+.donor-parties { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }

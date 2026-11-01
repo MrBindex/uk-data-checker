@@ -193,6 +193,7 @@ async function main() {
   await buildHousing(las);
   await buildBills();
   await buildMps();
+  await buildDonations();
 }
 
 // ---------------------------------------------------------------- immigration
@@ -837,8 +838,115 @@ async function buildMps() {
   console.log(`Wrote mps.json (${Object.keys(constituencies).length} MPs; expenses ${out.expensesYear}${out.expensesRecentYear ? ` + ${out.expensesRecentYear} claims` : ''}; ${registerCount} register entries)${unmatched.length ? `\n  Not matched to a boundary: ${unmatched.join(', ')}` : ''}`);
 }
 
+// Donations to political parties from the Electoral Commission register: one CSV per year
+// (by the date the party accepted it). Quarterly reports only: pre-poll election reports
+// repeat donations that also appear in the quarterly ones.
+const EC_DONATIONS = 'https://search.electoralcommission.org.uk/api/csv/Donations';
+const DONOR_TYPES = { Individual: 'individual', Company: 'company', 'Limited Liability Partnership': 'company', 'Trade Union': 'union', 'Unincorporated Association': 'association', 'Friendly Society': 'association' };
+
+async function buildDonations() {
+  const now = new Date(), thisYear = now.getUTCFullYear();
+  const rows = [];
+  for (let y = 2001; y <= thisYear; y++) {
+    const q = new URLSearchParams({ start: 0, rows: 50, query: '', sort: 'AcceptedDate', order: 'desc', et: 'pp', date: 'Accepted', from: `${y}-01-01`, to: `${y}-12-31`, prePoll: 'false', postPoll: 'true' });
+    q.append('register', 'gb'); q.append('register', 'ni');
+    const text = (await getText(`${EC_DONATIONS}?${q}`)).replace(/^﻿/, '');
+    const sheet = XLSX.read(text, { type: 'string', raw: true }).Sheets.Sheet1;
+    const yr = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
+    console.log(`  ${y}: ${yr.length} donations`);
+    rows.push(...yr);
+  }
+  const dmy = s => { const m = String(s).match(/^(\d{2})\/(\d{2})\/(\d{4})/); return m ? `${m[3]}-${m[2]}-${m[1]}` : null; };
+  const donations = rows.map(r => ({
+    party: String(r.RegulatedEntityId), partyName: r.RegulatedEntityName,
+    value: Number(String(r.Value).replace(/[£,]/g, '')), date: dmy(r.AcceptedDate),
+    donorId: String(r.DonorId || r.DonorName), donor: String(r.DonorName).trim(), status: r.DonorStatus,
+    isPublic: r.DonorStatus === 'Public Fund' || r.DonationType === 'Public Funds',
+    cash: r.DonationType === 'Cash', nature: r.NatureOfDonation || '', unit: r.AccountingUnitName,
+  })).filter(d => d.date && isFinite(d.value) && d.value > 0);
+  const latest = donations.reduce((m, d) => (d.date > m ? d.date : m), '');
+
+  // Parties shown separately: the 8 that received the most private donations in the last 10 years.
+  const names = {};
+  for (const d of [...donations].sort((a, b) => a.date.localeCompare(b.date))) names[d.party] = d.partyName;
+  const recent = {};
+  for (const d of donations) if (!d.isPublic && d.date >= `${thisYear - 10}`) recent[d.party] = (recent[d.party] || 0) + d.value;
+  const tracked = Object.entries(recent).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([id]) => id);
+  const partyKey = id => (tracked.includes(id) ? id : 'other');
+
+  const last12From = (() => { const d = new Date(`${latest}T00:00:00Z`); d.setUTCFullYear(d.getUTCFullYear() - 1); return d.toISOString().slice(0, 10); })();
+  const periods = { last12: d => d.date > last12From, all: () => true };
+  for (let y = 2001; y <= thisYear; y++) periods[y] = d => d.date.startsWith(String(y));
+
+  const round = v => Math.round(v);
+  // The register can list one donor under several IDs and spellings ("Mr Ben Peter Delo",
+  // "Ben Delo", "Lord Sainsbury of Turville"), so group people by first + last name without titles
+  // or peerage "of …" places, and organisations by
+  // name without "Ltd"/"Limited"/"plc" and punctuation.
+  const TITLES = /^(mr|mrs|ms|miss|mx|dr|sir|dame|lord|lady|baron|baroness|the|rt|hon|right|honourable|prof|professor|rev|cllr)\.?$/i;
+  const cleanName = n => n.replace(/\s+/g, ' ').trim().replace(/ of [A-Z][a-z]+( [A-Z][a-z]+)?$/, '').split(' ').filter((w, i, a) => !(TITLES.test(w) && i < a.length - 2)).join(' ');
+  const donorKey = d => {
+    if (d.status === 'Individual') {
+      const w = cleanName(d.donor).toLowerCase().replace(/[^a-z\s'-]/g, '').split(' ').filter(Boolean);
+      return `p:${w[0]} ${w[w.length - 1]}`;
+    }
+    return `o:${d.donor.toLowerCase().replace(/\b(ltd|limited|plc|llp|the)\b/g, '').replace(/[^a-z0-9]/g, '')}`;
+  };
+  const topDonors = (list, n) => {
+    const by = {};
+    for (const d of list) {
+      const k = donorKey(d);
+      const e = by[k] || (by[k] = { names: {}, status: d.status, total: 0, count: 0, parties: {} });
+      e.total += d.value; e.count++; e.parties[partyKey(d.party)] = (e.parties[partyKey(d.party)] || 0) + d.value;
+      const nm = d.status === 'Individual' ? cleanName(d.donor) : d.donor;
+      e.names[nm] = (e.names[nm] || 0) + d.value;
+    }
+    // Show the spelling used for most of the money.
+    for (const e of Object.values(by)) e.name = Object.entries(e.names).sort((a, b) => b[1] - a[1])[0][0];
+    return Object.values(by).sort((a, b) => b.total - a.total).slice(0, n).map(e => ({
+      name: e.name, status: e.status, total: round(e.total), count: e.count,
+      parties: Object.fromEntries(Object.entries(e.parties).sort((a, b) => b[1] - a[1]).map(([k, v]) => [k, round(v)])),
+    }));
+  };
+
+  const out = {};
+  for (const [key, test] of Object.entries(periods)) {
+    const list = donations.filter(test);
+    if (!list.length) continue;
+    const priv = list.filter(d => !d.isPublic);
+    const parties = {};
+    for (const d of list) {
+      const k = partyKey(d.party);
+      const p = parties[k] || (parties[k] = { private: 0, public: 0, count: 0, cash: 0, types: {} });
+      if (d.isPublic) { p.public += d.value; continue; }
+      p.private += d.value; p.count++; if (d.cash) p.cash += d.value;
+      const t = DONOR_TYPES[d.status] || 'other';
+      p.types[t] = (p.types[t] || 0) + d.value;
+    }
+    for (const p of Object.values(parties)) { for (const k of ['private', 'public', 'cash']) p[k] = round(p[k]); for (const t in p.types) p.types[t] = round(p.types[t]); }
+    const donors = { all: topDonors(priv, 25) };
+    for (const id of tracked) donors[id] = topDonors(priv.filter(d => d.party === id), 15);
+    const biggest = [...priv].sort((a, b) => b.value - a.value).slice(0, 15).map(d => ({
+      donor: d.status === 'Individual' ? cleanName(d.donor) : d.donor, status: d.status, party: partyKey(d.party), partyName: names[d.party], value: round(d.value), date: d.date, cash: d.cash, nature: d.nature,
+    }));
+    out[key] = { parties, donors, biggest, count: priv.length, private: round(priv.reduce((s, d) => s + d.value, 0)) };
+  }
+
+  const result = {
+    source: { title: 'Electoral Commission, register of donations to political parties (quarterly reports)', page: 'https://search.electoralcommission.org.uk' },
+    built: now.toISOString().slice(0, 10), latest, last12From,
+    parties: tracked.map(id => ({ id, name: names[id] })),
+    years: Object.keys(out).filter(k => /^\d{4}$/.test(k)).map(Number),
+    periods: out,
+  };
+  fs.writeFileSync(path.join(OUT, 'donations.json'), JSON.stringify(result));
+  console.log(`Wrote donations.json (${donations.length} donations to ${latest}; parties: ${tracked.map(id => names[id]).join(', ')})`);
+}
+
 // `npm run build-data -- immigration` (or `-- spending`, `-- mps`) rebuilds just that file.
-if (process.argv[2] === 'mps') {
+if (process.argv[2] === 'donations') {
+  buildDonations().catch(e => { console.error(e); process.exit(1); });
+} else if (process.argv[2] === 'mps') {
   buildMps().catch(e => { console.error(e); process.exit(1); });
 } else if (process.argv[2] === 'housing') {
   buildHousing(JSON.parse(fs.readFileSync(path.join(OUT, 'local-authorities.json'), 'utf8'))).catch(e => { console.error(e); process.exit(1); });
