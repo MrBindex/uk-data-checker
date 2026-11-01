@@ -1,0 +1,13 @@
+{
+  "name": "uk-data-checker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Clear, sourced views of official UK statistics (ONS, DWP, HMRC) to help people check claims.",
+  "scripts": {
+    "start": "node server.js",
+    "build-data": "node scripts/build-finances.js"
+  },
+  "devDependencies": {
+    "xlsx": "0.18.5"
+  }
+}
