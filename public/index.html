@@ -30,11 +30,12 @@
         <a href="#/bills" data-nav="bills"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>Bills</a>
         <a href="#/areas" data-nav="areas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>Your area</a>
         <div class="nav-drop" id="taxMenu">
-          <button type="button" class="nav-drop-btn" data-nav-any="regions,spending,revenue,debt" aria-expanded="false" aria-controls="taxMenuList"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Tax &amp; spending<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+          <button type="button" class="nav-drop-btn" data-nav-any="regions,spending,revenue,debt,parties" aria-expanded="false" aria-controls="taxMenuList"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Tax &amp; spending<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
           <div class="nav-menu" id="taxMenuList">
             <a href="#/spending" data-nav="spending"><span class="nm-icon ic-violet"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9v9z"/><path d="M12 3a9 9 0 0 1 9 9h-9z"/></svg></span><span><b>How the government spends money</b><small>Where every £100 of public spending goes</small></span></a>
             <a href="#/revenue" data-nav="revenue"><span class="nm-icon ic-green"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M17 7H9.5a3 3 0 0 0 0 6h5a3 3 0 0 1 0 6H6"/></svg></span><span><b>Where the money comes from</b><small>Income Tax, VAT, National Insurance and every other tax</small></span></a>
             <a href="#/debt" data-nav="debt"><span class="nm-icon ic-orange"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span><span><b>Government debt</b><small>How much debt each Prime Minister added</small></span></a>
+            <a href="#/parties" data-nav="parties"><span class="nm-icon ic-violet"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21h16M6 18V10M10 18V10M14 18V10M18 18V10M3 8l9-5 9 5z"/></svg></span><span><b>Party budget plans</b><small>What each party would raise, save and spend</small></span></a>
             <a href="#/regions" data-nav="regions"><span class="nm-icon ic-blue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span><span><b>Tax &amp; spending by region</b><small>What each region raises and receives</small></span></a>
           </div>
         </div>
@@ -59,7 +60,7 @@
       </div>
       <div>
         <h4>Explore</h4>
-        <a href="#/search">Search ONS data</a><a href="#/bulletins">Bulletins</a><a href="#/map">Map of the UK</a><a href="#/areas">Your area</a><a href="#/bills">Household bills</a><a href="#/spending">How the government spends money</a><a href="#/revenue">Where the money comes from</a><a href="#/debt">Government debt</a><a href="#/regions">Tax &amp; spending by region</a><a href="#/guide">Fact-check guide</a>
+        <a href="#/search">Search ONS data</a><a href="#/bulletins">Bulletins</a><a href="#/map">Map of the UK</a><a href="#/areas">Your area</a><a href="#/bills">Household bills</a><a href="#/spending">How the government spends money</a><a href="#/revenue">Where the money comes from</a><a href="#/debt">Government debt</a><a href="#/parties">Party budget plans</a><a href="#/regions">Tax &amp; spending by region</a><a href="#/guide">Fact-check guide</a>
       </div>
       <div>
         <h4>Sources</h4>
@@ -85,6 +86,7 @@
   <script src="js/revenue.js"></script>
   <script src="js/bills.js"></script>
   <script src="js/debt.js"></script>
+  <script src="js/parties.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
