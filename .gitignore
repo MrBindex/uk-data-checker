@@ -1,3 +1,8 @@
 node_modules/
+
+# Secrets: never commit real keys (the empty template .env.example is fine)
 .env
+.env.*
+!.env.example
+
 cache/
