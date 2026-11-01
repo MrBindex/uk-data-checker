@@ -13,7 +13,6 @@ const PARTY_INFO = {
   ref: { name: 'Reform UK', colour: 'var(--party-ref)' },
   ld: { name: 'Liberal Democrats', colour: 'var(--party-ld)' },
   grn: { name: 'Green Party', colour: 'var(--party-grn)' },
-  snp: { name: 'SNP', colour: 'var(--party-snp)' },
 };
 
 const ICAEW_2024 = { name: 'ICAEW, “Chart of the week: General election 2024” (21 June 2024)', url: 'https://www.icaew.com/insights/viewpoints-on-the-news/2024/jun-2024/chart-of-the-week-general-election-2024' };
@@ -54,11 +53,6 @@ const MANIFESTOS_2024 = [
     spends: 'Big increases for the NHS, social care and housing, insulating homes, and green energy investment funded by borrowing.',
     verdict: 'The IFS said the new taxes were unlikely to raise anything like the sums claimed, and that the plans would add around £80bn a year to borrowing by 2030.',
     borrowingNote: 'About £63bn a year of extra borrowing by 2028-29.',
-  },
-  {
-    id: 'snp', none: true,
-    note: 'The SNP stands only in Scotland and didn’t publish UK-wide costings. Its 2024 manifesto called on the UK government to spend more — for example £16bn a year more on the NHS in England, which would give Scotland about £1.6bn — and to rejoin the EU.',
-    verdict: 'The IFS said the SNP’s calls for more spending didn’t say how they would be paid for, and that Scotland’s own budget faces difficult choices.',
   },
 ];
 
@@ -141,19 +135,6 @@ const ANNOUNCEMENTS_2026 = [
       { name: 'Green Party', url: 'https://greenparty.org.uk/2026/03/18/zack-polanski-lays-out-plans-to-back-the-caring-majority-in-major-speech/' },
     ],
   },
-  {
-    id: 'snp', role: 'Scottish Government', when: 'Holyrood election, May 2026',
-    summary: 'The SNP’s 2026 plans were for the Scottish Parliament, where it won 58 seats and stayed in government. It has published no new UK-wide budget plan.',
-    items: [
-      { text: 'Freeze Scottish Income Tax rates for the next Parliament' },
-      { text: 'A cap on some food prices (which may need UK government agreement)' },
-      { text: 'Higher council tax bands on homes worth over £1m and £2m from 2028 (announced in the January 2026 Scottish Budget)' },
-    ],
-    check: 'The Fraser of Allander Institute reviewed the SNP’s Holyrood manifesto costings.',
-    sources: [
-      { name: 'Fraser of Allander Institute', url: 'https://fraserofallander.org/2026-scottish-manifesto-analysis-scottish-national-party/' },
-    ],
-  },
 ];
 
 async function partiesPage() {
@@ -161,17 +142,16 @@ async function partiesPage() {
   const sign = v => `£${nf(v, v % 1 ? 1 : 0)}bn`;
   const parties = MANIFESTOS_2024.map(p => ({
     ...p, ...PARTY_INFO[p.id],
-    found: p.none ? null : p.taxRises + p.savings,
-    committed: p.none ? null : p.spending + p.taxCuts + (p.capital || 0),
+    found: p.taxRises + p.savings,
+    committed: p.spending + p.taxCuts + (p.capital || 0),
   }));
-  const costed = parties.filter(p => !p.none);
-  const biggest = [...costed].sort((a, b) => b.committed - a.committed)[0];
+  const biggest = [...parties].sort((a, b) => b.committed - a.committed)[0];
   // Not an official statistic, so no "Official data" tick.
   const icaewSrc = `<div class="source"><span>Source: <a href="${ICAEW_2024.url}" target="_blank" rel="noopener">${esc(ICAEW_2024.name)}</a>, from the parties' own costings</span><span>Verdicts: <a href="${IFS_2024}" target="_blank" rel="noopener">Institute for Fiscal Studies</a></span></div>`;
 
   view.innerHTML = `
     <div class="page-head"><span class="kicker">Tax &amp; spending</span><h1>What would each party do with your money?</h1>
-      <p class="lead">How much the six biggest UK-wide parties said they would raise and save, and how much they would spend or give back in tax cuts — side by side, with what independent experts made of the sums.</p></div>
+      <p class="lead">How much the five biggest UK-wide parties said they would raise and save, and how much they would spend or give back in tax cuts — side by side, with what independent experts made of the sums.</p></div>
 
     <div class="seg party-tabs" id="partyTabs" role="tablist">
       <button type="button" role="tab" data-v="2024" aria-pressed="true" aria-selected="true">2024 manifestos (costed)</button>
@@ -203,9 +183,7 @@ async function partiesPage() {
           <h3>All the figures</h3>
           <div class="table-wrap"><table class="data">
             <thead><tr><th>Party</th><th>Tax rises</th><th>Savings</th><th>Money found</th><th>New spending</th><th>Tax cuts</th><th>Money committed</th><th>Borrowing</th></tr></thead>
-            <tbody>${parties.map(p => p.none
-              ? `<tr><td><span class="party-dot" style="background:${p.colour}"></span>${esc(p.name)}</td><td colspan="7" class="muted">No UK-wide costings published</td></tr>`
-              : `<tr><td><span class="party-dot" style="background:${p.colour}"></span>${esc(p.name)}</td><td>${sign(p.taxRises)}</td><td>${sign(p.savings)}</td><td><strong>${sign(p.found)}</strong></td><td>${sign(p.spending)}${p.capital ? `<div class="small muted">+ ${sign(p.capital)} capital</div>` : ''}</td><td>${p.taxCuts ? sign(p.taxCuts) : '–'}</td><td><strong>${sign(p.committed)}</strong></td><td>${p.borrowing ? sign(p.borrowing) : '–'}</td></tr>`).join('')}</tbody>
+            <tbody>${parties.map(p => `<tr><td><span class="party-dot" style="background:${p.colour}"></span>${esc(p.name)}</td><td>${sign(p.taxRises)}</td><td>${sign(p.savings)}</td><td><strong>${sign(p.found)}</strong></td><td>${sign(p.spending)}${p.capital ? `<div class="small muted">+ ${sign(p.capital)} capital</div>` : ''}</td><td>${p.taxCuts ? sign(p.taxCuts) : '–'}</td><td><strong>${sign(p.committed)}</strong></td><td>${p.borrowing ? sign(p.borrowing) : '–'}</td></tr>`).join('')}</tbody>
           </table></div>
           <p class="small muted" style="margin:10px 0 0">£ billion a year in 2028-29, as costed by each party. Liberal Democrat tax rises include £7.2bn from tackling tax avoidance; their spending excludes capital investment, shown separately and paid for by borrowing. Figures are rounded, so found + borrowing may not exactly equal committed.</p>
           ${icaewSrc}
@@ -224,7 +202,7 @@ async function partiesPage() {
     </div>
 
     <div id="tab2026" hidden>
-      <div class="callout warn"><p><strong>Not fully costed.</strong> These are announcements made since the 2024 election, mostly at party conferences in 2026. Unless it says otherwise, every figure is the party’s own claim and hasn’t been checked by the OBR or an independent body. Labour, as the government, sets its plans in the Budget, which the OBR does check. A full, comparable costing will come with the next set of manifestos.</p></div>
+      <div class="callout warn"><p><strong>Not fully parties.</strong> These are announcements made since the 2024 election, mostly at party conferences in 2026. Unless it says otherwise, every figure is the party’s own claim and hasn’t been checked by the OBR or an independent body. Labour, as the government, sets its plans in the Budget, which the OBR does check. A full, comparable costing will come with the next set of manifestos.</p></div>
       <div class="party-grid">${ANNOUNCEMENTS_2026.map(a => announcementCard(a)).join('')}</div>
       <p class="small muted" style="margin:16px 0 0">Collected from party announcements and news reports up to 1 November 2026. Sources are linked on each card.</p>
     </div>`;
@@ -246,20 +224,20 @@ async function partiesPage() {
     if (!box || !box.offsetParent) return;
     const series = cmp === 'totals'
       ? [
-        { name: 'Money found (tax rises + savings)', color: 'var(--series-3)', values: costed.map(p => p.found) },
-        { name: 'Money committed (spending + tax cuts)', color: 'var(--series-2)', values: costed.map(p => p.committed) },
-        { name: 'Borrowing', color: 'var(--series-7)', values: costed.map(p => p.borrowing || null) },
+        { name: 'Money found (tax rises + savings)', color: 'var(--series-3)', values: parties.map(p => p.found) },
+        { name: 'Money committed (spending + tax cuts)', color: 'var(--series-2)', values: parties.map(p => p.committed) },
+        { name: 'Borrowing', color: 'var(--series-7)', values: parties.map(p => p.borrowing || null) },
       ]
       : [
-        { name: 'Tax rises', color: 'var(--series-6)', values: costed.map(p => p.taxRises) },
-        { name: 'Savings', color: 'var(--series-3)', values: costed.map(p => p.savings) },
-        { name: 'New spending', color: 'var(--series-2)', values: costed.map(p => p.spending + (p.capital || 0)) },
-        { name: 'Tax cuts', color: 'var(--series-4)', values: costed.map(p => p.taxCuts) },
+        { name: 'Tax rises', color: 'var(--series-6)', values: parties.map(p => p.taxRises) },
+        { name: 'Savings', color: 'var(--series-3)', values: parties.map(p => p.savings) },
+        { name: 'New spending', color: 'var(--series-2)', values: parties.map(p => p.spending + (p.capital || 0)) },
+        { name: 'Tax cuts', color: 'var(--series-4)', values: parties.map(p => p.taxCuts) },
       ];
-    Charts.groupedBars(box, { categories: costed.map(p => p.name), series, format: sign, ariaLabel: 'Party plans compared, £ billion a year' });
+    Charts.groupedBars(box, { categories: parties.map(p => p.name), series, format: sign, ariaLabel: 'Party plans compared, £ billion a year' });
     document.getElementById('partyNote').textContent = cmp === 'totals'
-      ? '£ billion a year by 2028-29. When money committed is bigger than money found, the gap is borrowed. The SNP published no UK-wide costings, so isn’t shown.'
-      : '£ billion a year by 2028-29. Liberal Democrat new spending includes £20.7bn of borrowed capital investment. The SNP published no UK-wide costings, so isn’t shown.';
+      ? '£ billion a year by 2028-29. When money committed is bigger than money found, the gap is borrowed.'
+      : '£ billion a year by 2028-29. Liberal Democrat new spending includes £20.7bn of borrowed capital investment.';
   };
   document.getElementById('cmpSeg').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
@@ -273,12 +251,6 @@ async function partiesPage() {
 
 function partyCard(p, sign) {
   const head = `<div class="party-card-head"><span class="party-swatch" style="background:${p.colour}"></span><h3>${esc(p.name)}</h3></div>`;
-  if (p.none) {
-    return `<article class="card party-card">${head}
-      <p class="party-none">No UK-wide costings published</p>
-      <p>${esc(p.note)}</p>
-      <div class="party-verdict"><span class="badge">Independent view</span><p>${esc(p.verdict)}</p></div></article>`;
-  }
   const max = Math.max(p.found + (p.borrowing || 0), p.committed);
   const seg = (v, cls, label) => v ? `<span class="${cls}" style="width:${(v / max) * 100}%" title="${esc(label)}: ${sign(v)}"></span>` : '';
   return `<article class="card party-card">${head}
