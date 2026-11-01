@@ -157,6 +157,10 @@ const Charts = (() => {
         showTip(`<div class="t-title">${esc(r.label)}</div><div class="t-row"><span>${esc(opts.valueName || 'Value')}</span><b>${format(r.value)}</b></div>${r.tip ? `<div class="muted small" style="margin-top:4px">${r.tip}</div>` : ''}`, evt);
       });
       hitR.addEventListener('pointerleave', () => { all.forEach(b => b.classList.remove('dim')); hideTip(); });
+      if (opts.onSelect) {
+        hitR.style.cursor = 'pointer';
+        hitR.addEventListener('click', () => { hideTip(); opts.onSelect(r, i); });
+      }
     });
     if (lo < 0) el('line', { x1: x(0), x2: x(0), y1: 0, y2: H, class: 'zero' }, svg);
   }
@@ -210,6 +214,56 @@ const Charts = (() => {
     }
   }
 
+  /**
+   * Donut (ring) chart. opts.slices: [{ label, value, color }]; opts.selected: index;
+   * opts.onSelect(slice, i); opts.center: { value, label }. Slices are separated by a
+   * thin surface-coloured gap; the selected slice is pulled out slightly.
+   */
+  function donut(container, opts) {
+    const { slices, format = v => v.toLocaleString('en-GB') } = opts;
+    container.innerHTML = '';
+    const size = Math.min(460, Math.max(240, container.clientWidth || 360));
+    const cx = size / 2, cy = size / 2, R = size / 2 - 10, r = R * 0.6;
+    const total = slices.reduce((s, x) => s + Math.max(0, x.value), 0) || 1;
+    const svg = el('svg', { viewBox: `0 0 ${size} ${size}`, role: 'img', 'aria-label': opts.ariaLabel || 'Pie chart', class: 'donut' }, container);
+    const pt = (a, rad) => [cx + rad * Math.sin(a), cy - rad * Math.cos(a)];
+    let a0 = 0;
+    const paths = [];
+    slices.forEach((s, i) => {
+      const frac = Math.max(0, s.value) / total;
+      const a1 = a0 + frac * Math.PI * 2;
+      const mid = (a0 + a1) / 2;
+      const push = i === opts.selected ? 8 : 0;
+      const ox = push * Math.sin(mid), oy = -push * Math.cos(mid);
+      const large = a1 - a0 > Math.PI ? 1 : 0;
+      const [x0, y0] = pt(a0, R), [x1, y1] = pt(a1, R), [x2, y2] = pt(a1, r), [x3, y3] = pt(a0, r);
+      const d = frac >= 0.9999
+        ? `M${cx},${cy - R}A${R},${R} 0 1 1 ${cx - 0.01},${cy - R}L${cx - 0.01},${cy - r}A${r},${r} 0 1 0 ${cx},${cy - r}Z`
+        : `M${x0},${y0}A${R},${R} 0 ${large} 1 ${x1},${y1}L${x2},${y2}A${r},${r} 0 ${large} 0 ${x3},${y3}Z`;
+      const p = el('path', { d, fill: s.color, class: 'slice' + (i === opts.selected ? ' sel' : ''), transform: `translate(${ox},${oy})`, tabindex: -1 }, svg);
+      paths.push(p);
+      // Direct label on slices big enough to hold one.
+      if (frac >= 0.06) {
+        const [lx, ly] = pt(mid, (R + r) / 2);
+        const t = el('text', { x: lx + ox, y: ly + oy + 4, 'text-anchor': 'middle', class: 'slice-label' }, svg);
+        t.textContent = `${Math.round(frac * 100)}%`;
+      }
+      p.addEventListener('pointermove', evt => {
+        paths.forEach(q => q.classList.toggle('dim', q !== p));
+        showTip(`<div class="t-title">${esc(s.label)}</div><div class="t-row"><span>${esc(opts.valueName || 'Value')}</span><b>${format(s.value)}</b></div><div class="t-row"><span>Share</span><b>${(frac * 100).toFixed(1)}%</b></div>`, evt);
+      });
+      p.addEventListener('pointerleave', () => { paths.forEach(q => q.classList.remove('dim')); hideTip(); });
+      if (opts.onSelect) p.addEventListener('click', () => { hideTip(); opts.onSelect(s, i); });
+      a0 = a1;
+    });
+    if (opts.center) {
+      const v = el('text', { x: cx, y: cy + 2, 'text-anchor': 'middle', class: 'donut-value' }, svg);
+      v.textContent = opts.center.value;
+      const l = el('text', { x: cx, y: cy + 22, 'text-anchor': 'middle', class: 'donut-label' }, svg);
+      l.textContent = opts.center.label;
+    }
+  }
+
   function spark(values, color = 'var(--series-1)') {
     const v = values.filter(n => n != null);
     if (v.length < 2) return '';
@@ -224,5 +278,5 @@ const Charts = (() => {
     return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
-  return { line, bars, groupedBars, spark, esc };
+  return { line, bars, groupedBars, donut, spark, esc };
 })();

@@ -10,6 +10,7 @@ const DIRECT = {
   '/api/ons/search': 'https://api.beta.ons.gov.uk/v1/search',
   '/api/ons/site': ONS_SITE,
   '/api/nomis': 'https://www.nomisweb.co.uk/api/v01/dataset',
+  '/api/parl/members': 'https://members-api.parliament.uk/api',
 };
 async function api(path, as = 'json') {
   let r;
@@ -113,13 +114,15 @@ const HEADLINES = [
 
 // ---------------------------------------------------------------- router
 const routes = {
-  '': home, search, series, areas, area, regions, guide, map: mapPage, bulletins: bulletinsPage, read: readPage,
+  '': home, search, series, areas, area, regions, guide, map: mapPage, bulletins: bulletinsPage, read: readPage, spending: spendingPage, revenue: revenuePage, bills: billsPage,
 };
 async function router() {
   const [pathPart, qs] = location.hash.replace(/^#\/?/, '').split('?');
   const [page, ...rest] = pathPart.split('/');
   const params = new URLSearchParams(qs || '');
   document.querySelectorAll('[data-nav]').forEach(a => a.classList.toggle('active', a.dataset.nav === page || (page === 'area' && a.dataset.nav === 'areas') || (page === 'series' && a.dataset.nav === 'search') || (page === 'read' && a.dataset.nav === 'bulletins')));
+  document.querySelectorAll('[data-nav-any]').forEach(b => b.classList.toggle('active', b.dataset.navAny.split(',').includes(page)));
+  closeNavMenus();
   const fn = routes[page] || home;
   hideTooltip();
   window.scrollTo(0, 0);
@@ -679,6 +682,37 @@ function guide() {
     <section class="section"><h2>Check a claim now</h2>${searchForm()}
     <p class="small muted">Or look up <a href="#/areas">your local area</a>, or <a href="#/regions">tax and spending by region</a>. You can also use the independent fact-checker <a href="https://fullfact.org" target="_blank" rel="noopener">Full Fact</a>, or the <a href="https://osr.statisticsauthority.gov.uk" target="_blank" rel="noopener">Office for Statistics Regulation</a>, which challenges misuse of official statistics.</p></section>`;
 }
+
+// ---------------------------------------------------------------- header dropdown menus
+// Click (or Enter/Space) toggles; Escape, clicking elsewhere or changing page closes.
+function closeNavMenus(except) {
+  document.querySelectorAll('.nav-drop.open').forEach(d => {
+    if (d === except) return;
+    d.classList.remove('open');
+    d.querySelector('.nav-drop-btn').setAttribute('aria-expanded', 'false');
+  });
+}
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.nav-drop-btn');
+  if (!btn) { if (!e.target.closest('.nav-menu')) closeNavMenus(); return; }
+  const drop = btn.parentElement;
+  const open = !drop.classList.contains('open');
+  closeNavMenus(drop);
+  drop.classList.toggle('open', open);
+  btn.setAttribute('aria-expanded', String(open));
+  // On narrow screens the nav row scrolls sideways, so pin the menu under the header instead.
+  const menu = drop.querySelector('.nav-menu');
+  // (The header's backdrop blur makes it the containing block, so this is relative to the header.)
+  menu.style.top = innerWidth <= 820 ? `${document.querySelector('.header-bar').offsetHeight + 6}px` : '';
+  if (open) menu.querySelector('a')?.focus({ preventScroll: true });
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.querySelector('.nav-drop.open')) {
+    const btn = document.querySelector('.nav-drop.open .nav-drop-btn');
+    closeNavMenus();
+    btn?.focus();
+  }
+});
 
 // ---------------------------------------------------------------- theme
 (() => {

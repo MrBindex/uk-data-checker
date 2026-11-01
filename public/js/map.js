@@ -69,7 +69,63 @@ const MAP_GROUPS = [
     bornAbroadPct: { name: 'Born outside the UK (Census 2021)', short: 'Born outside UK', unit: '% of residents', rate: true, format: v => nf(v, 1) + '%', kind: 'imm', field: 'bornAbroadPct', src: 'census', explain: 'Share of residents born outside the UK, including people who have lived here for decades and British citizens born abroad. England and Wales only.' },
   } },
 ];
-const MAP_MEASURES = Object.assign({}, ...MAP_GROUPS.map(g => g.measures));
+// Crime: police recorded crime (England and Wales), built into data/crime.json.
+const crimeData = () => getJSON('data/crime.json');
+const CRIME_NOTE = ' Police recorded crime depends on what people report and how forces record it. Busy city centres (like Westminster and the City of London) have far more visitors and workers than residents, so their rates per resident look very high.';
+const crimeMeasure = (field, name, short, explain) => ({ name, short, kind: 'crime', field, explain: explain + CRIME_NOTE });
+MAP_GROUPS.push({ name: 'Crime (England & Wales)', measures: {
+  crimeTotal: crimeMeasure('total', 'All police recorded crime', 'All crime', 'Every crime recorded by the police over 12 months (except fraud and computer misuse, which are recorded nationally).'),
+  crimeViolence: crimeMeasure('violence', 'Violence against the person', 'Violence', 'Includes assaults with and without injury, stalking and harassment, and homicide.'),
+  crimeSexual: crimeMeasure('sexual', 'Sexual offences', 'Sexual offences', 'Includes rape and other sexual offences. Many are reported long after they happened.'),
+  crimeRobbery: crimeMeasure('robbery', 'Robbery', 'Robbery', 'Theft using force or the threat of force, from people or businesses.'),
+  crimeBurglary: crimeMeasure('burglary', 'Burglary', 'Burglary', 'Breaking into homes and other buildings to steal.'),
+  crimeVehicle: crimeMeasure('vehicle', 'Vehicle crime', 'Vehicle crime', 'Theft of or from vehicles, and interfering with them.'),
+  crimeShoplifting: crimeMeasure('shoplifting', 'Shoplifting', 'Shoplifting', 'Theft from shops, as recorded by the police (much shoplifting is never reported).'),
+  crimeTheftPerson: crimeMeasure('theftPerson', 'Theft from the person', 'Theft from the person', 'Pickpocketing and snatch thefts without force.'),
+  crimeDamage: crimeMeasure('damage', 'Criminal damage and arson', 'Criminal damage', 'Vandalism, damage to property and deliberate fires.'),
+  crimeDrugs: crimeMeasure('drugs', 'Drug offences', 'Drug offences', 'Possession and dealing. These mostly reflect police activity — more stop and search finds more drugs.'),
+  crimeWeapons: crimeMeasure('weapons', 'Weapons possession', 'Weapons possession', 'Carrying knives, firearms or other weapons.'),
+  crimePublicOrder: crimeMeasure('publicOrder', 'Public order offences', 'Public order', 'Threatening or abusive behaviour, causing fear or distress, and similar offences.'),
+  crimeChange: { name: 'Change in crime on a year earlier', short: 'Change in crime', kind: 'crime', field: 'change', rate: true, diverging: true, unit: '% change in all recorded crime',
+    format: v => `${v > 0 ? '+' : v < 0 ? '−' : ''}${nf(Math.abs(v), 1)}%`,
+    explain: 'How total police recorded crime changed compared with the same 12 months a year earlier. Negative (orange) means crime went down.' + CRIME_NOTE },
+} });
+
+// Housing: UK House Price Index and ONS private rents, built into data/housing.json.
+const housingData = () => getJSON('data/housing.json');
+const pct = v => `${v > 0 ? '+' : v < 0 ? '−' : ''}${nf(Math.abs(v), 1)}%`;
+MAP_GROUPS.push({ name: 'Housing', measures: {
+  housePrice: { name: 'Average house price', short: 'House price', kind: 'housing', field: 'price', src: 'prices', rate: true, unit: '£, all property types', format: v => `£${nf(v)}`,
+    explain: 'The average price paid for homes sold in the area, adjusted for the mix of homes sold (so a month with lots of flat sales doesn\'t drag the average down). Click an area to see prices by type of home.' },
+  housePriceChange: { name: 'House price change on a year earlier', short: 'Price change', kind: 'housing', field: 'priceChange', src: 'prices', rate: true, diverging: true, unit: '% change in a year', format: pct,
+    explain: 'How much the average price changed in the last 12 months. Negative (orange) means prices fell. Not adjusted for inflation.' },
+  ftbPrice: { name: 'First-time buyer price', short: 'First-time buyer price', kind: 'housing', field: 'ftbPrice', src: 'prices', rate: true, unit: '£, homes bought by first-time buyers', format: v => `£${nf(v)}`,
+    explain: 'The average price paid by people buying their first home.' },
+  rent: { name: 'Average private rent', short: 'Monthly rent', kind: 'housing', field: 'rent', src: 'rents', rate: true, unit: '£ a month, private rented homes', format: v => `£${nf(v)}`,
+    explain: 'The average monthly rent for privately rented homes, including existing tenancies as well as new lets (so it is lower than advertised asking rents).' },
+  rentChange: { name: 'Rent change on a year earlier', short: 'Rent change', kind: 'housing', field: 'rentChange', src: 'rents', rate: true, diverging: true, unit: '% change in a year', format: pct,
+    explain: 'How much average private rents changed in the last 12 months. Not adjusted for inflation.' },
+} });
+
+// The MP layer: one shape per Westminster constituency (July 2024 boundaries).
+const mpData = () => getJSON('data/mps.json');
+const MP_GROUPS = [
+  { name: 'Your MP', measures: {
+    party: { name: 'Party of the MP', short: 'Party', kind: 'mp', rate: true, categorical: true, get: c => c.party,
+      explain: 'The party each MP currently sits for, using Parliament\'s official party colours. Some MPs have changed party or become independent since the 2024 general election.' },
+    yearsServed: { name: 'Years as an MP', short: 'Years as MP', kind: 'mp', rate: true, unit: 'total years in the House of Commons', get: c => c.yearsServed, format: v => `${nf(v, v < 10 ? 1 : 0)} yrs`,
+      explain: 'Total time each MP has spent in the House of Commons, for any constituency, including any earlier spells.' },
+    expenses: { name: 'Business costs ("expenses")', short: 'Business costs', kind: 'mp', rate: true, unit: '£ in the financial year', get: c => c.expenses?.total, format: v => `£${nf(v)}`, src: 'ipsa',
+      explain: 'What IPSA paid to run each MP\'s office: mostly staff salaries, plus office rent, accommodation in London and travel. This is not the MP\'s own pay.' },
+    donations: { zeroClass: true, name: 'Donations registered (as an MP)', short: 'Donations', kind: 'mp', rate: true, unit: '£ registered since the 2024 election', get: c => c.interests?.donations?.value || 0, format: v => `£${nf(v)}`, src: 'register',
+      explain: 'Donations and other support MPs must register, such as money for their office or campaign, or in-kind help. Registering a donation is a legal requirement; it does not mean anything improper.' },
+    gifts: { zeroClass: true, name: 'Gifts & hospitality registered', short: 'Gifts & hospitality', kind: 'mp', rate: true, unit: '£ registered since the 2024 election', get: c => c.interests?.gifts?.value || 0, format: v => `£${nf(v)}`, src: 'register',
+      explain: 'Gifts, tickets, meals and other hospitality worth more than £300 that MPs must register, from UK and overseas sources.' },
+    visits: { zeroClass: true, name: 'Overseas visits paid for by others', short: 'Funded visits', kind: 'mp', rate: true, unit: '£ registered since the 2024 election', get: c => c.interests?.visits?.value || 0, format: v => `£${nf(v)}`, src: 'register',
+      explain: 'Trips abroad that MPs registered as being paid for by someone other than themselves or Parliament, such as foreign governments, charities or companies.' },
+  } },
+];
+const MAP_MEASURES = Object.assign({}, ...[...MAP_GROUPS, ...MP_GROUPS].map(g => g.measures));
 const groupOf = key => MAP_GROUPS.find(g => key in g.measures);
 
 const immigration = () => getJSON('data/immigration.json');
@@ -100,6 +156,57 @@ function loadRaw(key) {
       out.period = m.periodOverride || s.period;
       out.source = { name: IMM_SRC[m.src], url: s.page };
       if (m.src === 'census') for (const code of Object.keys(imm.areas)) if (/^[SN]/.test(code)) out.notApplicable[code] = 'Scotland and Northern Ireland ran separate censuses';
+    } else if (m.kind === 'housing') {
+      const [d, las] = await Promise.all([housingData(), localAuthorities()]);
+      out.notes = {};
+      for (const [code, a] of Object.entries(d.areas)) {
+        if (a[m.field] != null) out.values[code] = a[m.field];
+        if (m.field === 'price' && a.priceDetached) {
+          out.notes[code] = ['Detached', 'SemiDetached', 'Terraced', 'Flat'].filter(t => a[`price${t}`]).map(t => `${t === 'SemiDetached' ? 'Semi' : t} £${nf(a[`price${t}`])}`).join(' · ');
+        }
+      }
+      if (m.src === 'rents') for (const la of las) if (/^[SN]/.test(la.code)) out.notApplicable[la.code] = 'Rents for individual council areas in Scotland and Northern Ireland aren\'t published in this ONS series';
+      const s = d[m.src];
+      out.period = s.period;
+      out.source = { name: s.title, url: s.page };
+    } else if (m.kind === 'crime') {
+      const [d, las, imm] = await Promise.all([crimeData(), localAuthorities(), immigration()]);
+      const codeOf = Object.fromEntries(las.map(a => [a.name, a.code]));
+      out.popFor = {};
+      out.notes = {};
+      for (const [code, a] of Object.entries(d.areas)) {
+        if (a.unreliable) { out.notApplicable[code] = a.unreliable; continue; }
+        // A year-on-year change is meaningless if the force changed how much crime it leaves unassigned.
+        const f = d.forces?.[a.force];
+        if (m.field === 'change' && f && Math.abs(f.unassignedShare - f.prevUnassignedShare) > 0.05) {
+          out.notApplicable[code] = `The change isn't reliable here: ${a.force} Police's share of crime not linked to a local area moved from ${Math.round(f.prevUnassignedShare * 100)}% to ${Math.round(f.unassignedShare * 100)}%`;
+          continue;
+        }
+        if (m.field === 'change') { if (a.previous.total) out.values[code] = (a.latest.total / a.previous.total - 1) * 100; }
+        else out.values[code] = a.latest[m.field] || 0;
+        const notes = [];
+        if (a.sharedWith) {
+          // One police partnership covers several councils: they share one figure, and rates
+          // use the combined population.
+          out.popFor[code] = a.sharedWith.reduce((s, n) => s + (imm.areas[codeOf[n]]?.pop || 0), 0);
+          notes.push(`Shared figure for ${a.sharedWith.join(', ')} (one police partnership)`);
+        }
+        const share = d.forces?.[a.force]?.unassignedShare || 0;
+        if (share > 0.05) notes.push(`Likely an undercount: ${Math.round(share * 100)}% of ${a.force} Police's recorded crime isn't linked to a local area`);
+        if (notes.length) out.notes[code] = notes.join('. ');
+      }
+      // Forces that leave a lot of crime unassigned make all their areas look lower than they are.
+      const bigUnassigned = Object.entries(d.forces || {}).filter(([, f]) => f.unassignedShare > 0.05).sort((x, y) => y[1].unassignedShare - x[1].unassignedShare);
+      if (bigUnassigned.length) out.warnings = [`Some police forces don't link all their crime to a local area, so their areas' figures are undercounts: ${bigUnassigned.map(([f, v]) => `${f} (${Math.round(v.unassignedShare * 100)}% unassigned)`).join(', ')}`];
+      for (const la of las) if (/^[SN]/.test(la.code)) out.notApplicable[la.code] = 'Scotland and Northern Ireland record crime under different rules and publish it separately, so it isn\'t shown here';
+      out.period = m.field === 'change' ? `${d.period} vs ${d.previousPeriod}` : d.period;
+      out.source = { name: d.source.title, url: d.source.page };
+    } else if (m.kind === 'mp') {
+      const d = await mpData();
+      for (const [code, c] of Object.entries(d.constituencies)) { const v = m.get(c); if (v != null) out.values[code] = v; }
+      out.period = m.src === 'ipsa' ? d.expensesYear : m.src === 'register' ? `to ${date(d.builtAt)}` : `as of ${date(d.builtAt)}`;
+      out.source = m.src === 'ipsa' ? { name: d.sources.ipsa.title, url: d.sources.ipsa.page } : m.src === 'register' ? { name: d.sources.register.title, url: d.sources.register.page } : { name: d.sources.members.title, url: d.sources.members.page };
+      if (m.categorical) out.colours = Object.fromEntries(Object.values(d.constituencies).map(c => [c.party, c.partyColour || '#888888']));
     } else if (m.kind === 'dwp') {
       const d = await api(`/api/dwp/benefit/${key}`);
       Object.assign(out.values, d.values);
@@ -125,11 +232,16 @@ async function loadShown(key, perK) {
   if (shownCache[ck]) return shownCache[ck];
   const raw = await loadRaw(key);
   const out = { ...raw, values: { ...raw.values } };
+  if (m.categorical) { // parties: a colour per category, no ranking or bands
+    const counts = {};
+    for (const v of Object.values(out.values)) counts[v] = (counts[v] || 0) + 1;
+    return (shownCache[ck] = { ...out, counts, rank: {}, count: Object.keys(out.values).length, breaks: [], format: v => v, unit: 'seats' });
+  }
   if (per) {
     const pop = (await immigration()).areas;
     let sumV = 0, sumP = 0;
     for (const [c, v] of Object.entries(raw.values)) {
-      const p = pop[c]?.pop;
+      const p = raw.popFor?.[c] ?? pop[c]?.pop;
       if (!p) { delete out.values[c]; continue; }
       out.values[c] = v / p * 1000; sumV += v; sumP += p;
     }
@@ -144,9 +256,12 @@ async function loadShown(key, perK) {
   out.per = per;
   out.format = m.rate ? m.format : per ? (v => `${nf(v, v < 10 && v > -10 ? 1 : 0)} per 1,000`) : (v => nf(v));
   out.unit = m.rate ? m.unit : per ? 'per 1,000 residents' : 'people';
-  if (m.diverging) {
+  // Diverging measures (net migration) and mostly-zero measures (register entries) band
+  // only the positive values; zero/negative get their own colour.
+  if (m.diverging || m.zeroClass) {
     const pos = sorted.map(([, v]) => v).filter(v => v > 0);
     out.breaks = quantileBreaks(pos, 6);
+    out.zeroCount = sorted.filter(([, v]) => v === 0).length;
   } else {
     out.breaks = quantileBreaks(sorted.map(([, v]) => v), 7);
   }
@@ -163,6 +278,7 @@ function quantileBreaks(values, k) {
 const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 // Colour token for a value. Diverging measures: one orange class for negatives, blues for positives.
 function colourToken(v, d, m) {
+  if (m.zeroClass) return v === 0 ? '--div-mid' : `--seq-${d.breaks.filter(b => v >= b).length + 2}`;
   if (m.diverging) {
     if (v < 0) return '--div-neg';
     if (v === 0) return '--div-mid';
@@ -174,31 +290,49 @@ const ordinal = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', '
 
 async function mapPage(params) {
   setTitle('Map');
-  let measure = MAP_MEASURES[params.get('m')] ? params.get('m') : 'claimRate';
+  // Two layers: council areas (the default) and Westminster constituencies with their MPs.
+  const mpLayer = params.get('layer') === 'mps';
+  const groups = mpLayer ? MP_GROUPS : MAP_GROUPS;
+  const layerMeasures = Object.assign({}, ...groups.map(g => g.measures));
+  let measure = layerMeasures[params.get('m')] ? params.get('m') : mpLayer ? 'party' : 'claimRate';
   let perK = params.get('per') !== '0';
   let selected = params.get('area') || null;
   const st = await dwpStatus();
 
   view.innerHTML = `
-    <div class="page-head" style="margin-bottom:18px"><span class="kicker">Map</span><h1>Map of the UK</h1>
-    <p class="lead">Every council area, coloured by the measure you choose — jobs, every major benefit, and immigration. Hover to see the figure, click an area to zoom in and see all its data.</p></div>
+    <div class="page-head" style="margin-bottom:18px"><span class="kicker">Map</span><h1>${mpLayer ? 'MPs and constituencies' : 'Map of the UK'}</h1>
+    <p class="lead">${mpLayer
+      ? 'All 650 MPs and the places they represent. Colour the map by party, years as an MP, expenses or donations, and click a constituency to see its MP\'s record.'
+      : 'Every council area, coloured by the measure you choose — jobs, every major benefit, and immigration. Hover to see the figure, click an area to zoom in and see all its data.'}</p></div>
+    <div class="seg layer-seg" role="group" aria-label="Map areas">
+      <a href="#/map" class="${mpLayer ? '' : 'on'}" aria-current="${!mpLayer}">Council areas</a>
+      <a href="#/map?layer=mps" class="${mpLayer ? 'on' : ''}" aria-current="${mpLayer}">MPs &amp; constituencies</a>
+    </div>
     <div class="controls" style="margin:14px 0">
       <label class="small muted" for="mapMeasure">Colour by</label>
-      <select id="mapMeasure" class="select">${MAP_GROUPS.map(g => `<optgroup label="${esc(g.name)}${g.dwp && !st.configured ? ' (needs DWP key)' : ''}">${Object.entries(g.measures).map(([k, m]) => `<option value="${k}" ${k === measure ? 'selected' : ''} ${m.kind === 'dwp' && !st.configured ? 'disabled' : ''}>${esc(m.name)}</option>`).join('')}</optgroup>`).join('')}</select>
+      <select id="mapMeasure" class="select">${groups.map(g => `<optgroup label="${esc(g.name)}${g.dwp && !st.configured ? ' (needs DWP key)' : ''}">${Object.entries(g.measures).map(([k, m]) => `<option value="${k}" ${k === measure ? 'selected' : ''} ${m.kind === 'dwp' && !st.configured ? 'disabled' : ''}>${esc(m.name)}</option>`).join('')}</optgroup>`).join('')}</select>
       <div class="seg" id="perSeg" role="group" aria-label="Show as">
         <button type="button" data-v="1" aria-pressed="${perK}">Per 1,000 people</button>
         <button type="button" data-v="0" aria-pressed="${!perK}">Number</button>
       </div>
-      <div class="picker map-find"><input id="mapFind" class="select" type="search" placeholder="Find an area…" role="combobox" aria-expanded="false" aria-controls="mapFindList" autocomplete="off"><ul id="mapFindList" role="listbox" hidden></ul></div>
+      <div class="picker map-find"><input id="mapFind" class="select" type="search" placeholder="${mpLayer ? 'Find a constituency or MP…' : 'Find an area…'}" role="combobox" aria-expanded="false" aria-controls="mapFindList" autocomplete="off"><ul id="mapFindList" role="listbox" hidden></ul></div>
       <button class="btn ghost" type="button" id="mapReset">Show whole UK</button>
     </div>
-    <div class="map-layout">
+    <div class="map-layout${mpLayer ? ' mp-mode' : ''}">
       <div class="card map-card"><div id="map" role="application" aria-label="Map of UK council areas"></div><div class="map-legend" id="mapLegend"></div></div>
       <aside class="card map-panel" id="mapPanel" aria-live="polite"></aside>
     </div>`;
 
-  const [geo, las] = await Promise.all([getJSON('data/la-boundaries.json'), localAuthorities()]);
-  const laByCode = Object.fromEntries(las.map(a => [a.code, a]));
+  const [geo, las, mps] = await Promise.all([
+    getJSON(mpLayer ? 'data/pcon-boundaries.json' : 'data/la-boundaries.json'),
+    localAuthorities(),
+    mpLayer ? mpData() : null,
+  ]);
+  // Searchable list of places: councils, or constituencies (with their MP's name as the hint).
+  const places = mpLayer
+    ? geo.features.map(f => ({ code: f.properties.code, name: f.properties.name, region: mps.constituencies[f.properties.code]?.mp || '' })).sort((a, b) => a.name.localeCompare(b.name))
+    : las;
+  const laByCode = Object.fromEntries(places.map(a => [a.code, a]));
 
   const map = L.map('map', { zoomSnap: 0.25, minZoom: 4.5, maxZoom: 12, attributionControl: true });
   map.attributionControl.setPrefix('').addAttribution(`Boundaries: <a href="${geo.source.page}" target="_blank" rel="noopener">ONS Open Geography</a> (OGL)`);
@@ -213,7 +347,8 @@ async function mapPage(params) {
     const v = data?.values[code];
     const sel = code === selected;
     return {
-      fillColor: v == null ? cssVar(data?.notApplicable[code] ? '--map-na' : '--surface-2') : cssVar(colourToken(v, data, MAP_MEASURES[measure])),
+      fillColor: v == null ? cssVar(data?.notApplicable[code] ? '--map-na' : '--surface-2')
+        : MAP_MEASURES[measure].categorical ? data.colours[v] : cssVar(colourToken(v, data, MAP_MEASURES[measure])),
       fillOpacity: 1,
       color: sel ? cssVar('--series-2') : cssVar('--map-line'),
       weight: sel ? 3.5 : 0.6,
@@ -227,7 +362,8 @@ async function mapPage(params) {
   const tipHtml = code => {
     const v = data?.values[code];
     const na = data?.notApplicable[code];
-    return `<strong>${esc(laByCode[code]?.name || code)}</strong><br>${esc(MAP_MEASURES[measure].short)}: <b>${v != null ? data.format(v) : na ? 'not comparable' : 'no data'}</b>`;
+    const who = mpLayer && mps.constituencies[code] ? `<br>${esc(mps.constituencies[code].mp)}` : '';
+    return `<strong>${esc(laByCode[code]?.name || code)}</strong>${who}<br>${esc(MAP_MEASURES[measure].short)}: <b>${v != null ? esc(data.format(v)) : na ? 'not comparable' : 'no data'}</b>`;
   };
   const endHover = () => {
     if (hovered && layers[hovered]) layer.resetStyle(layers[hovered]);
@@ -259,10 +395,19 @@ async function mapPage(params) {
     const vals = Object.values(data.values);
     const sw = (token, label) => `<div><i style="background:var(${token})"></i><span>${label}</span></div>`;
     let scale;
-    if (m.diverging) {
+    if (m.categorical) {
+      const parties = Object.entries(data.counts).sort((a, b) => b[1] - a[1]);
+      document.getElementById('mapLegend').innerHTML = `
+        <div class="small"><strong>${esc(m.name)}</strong> <span class="muted">· ${esc(data.period)}</span></div>
+        <ul class="party-legend">${parties.map(([p, n]) => `<li><i style="background:${esc(data.colours[p])}"></i>${esc(p)} <b>${n}</b></li>`).join('')}</ul>
+        <p class="small muted" style="margin:6px 0 0">${esc(m.explain)}</p>
+        ${sourceLine({ name: data.source.name, url: data.source.url })}`;
+      return;
+    }
+    if (m.diverging || m.zeroClass) {
       const pos = vals.filter(v => v > 0);
       const edges = [Math.min(...pos), ...data.breaks];
-      scale = sw('--div-neg', 'Below 0') + edges.map((e, i) => sw(`--seq-${i + 2}`, data.format(e) + (i === edges.length - 1 ? '+' : ''))).join('');
+      scale = sw(m.zeroClass ? '--div-mid' : '--div-neg', m.zeroClass ? 'None registered' : 'Below 0') + edges.map((e, i) => sw(`--seq-${i + 2}`, data.format(e) + (i === edges.length - 1 ? '+' : ''))).join('');
     } else {
       const edges = [Math.min(...vals), ...data.breaks];
       scale = edges.map((e, i) => sw(`--seq-${i + 1}`, data.format(e) + (i === edges.length - 1 ? '+' : ''))).join('');
@@ -272,15 +417,15 @@ async function mapPage(params) {
     document.getElementById('mapLegend').innerHTML = `
       <div class="small"><strong>${esc(m.name)}</strong> <span class="muted">· ${esc(data.unit)} · ${esc(data.period)}</span></div>
       <div class="legend-scale">${scale}${naCount ? sw('--map-na', 'Not comparable') : ''}<div><i style="background:var(--surface-2);outline:1px solid var(--border)"></i><span>No data</span></div></div>
-      <p class="small muted" style="margin:6px 0 0">${esc(m.explain)}${data.per ? ' Shown per 1,000 residents so big and small areas can be compared fairly.' : ''} Each colour band holds about the same number of areas.</p>
-      ${naReasons.map(r => `<p class="small" style="margin:6px 0 0">⚠ ${esc(r)}.</p>`).join('')}
+      <p class="small muted" style="margin:6px 0 0">${esc(m.explain)}${data.per ? ' Shown per 1,000 residents so big and small areas can be compared fairly.' : ''} Each colour band holds about the same number of ${mpLayer ? 'constituencies' : 'areas'}.</p>
+      ${[...(data.warnings || []), ...naReasons].map(r => `<p class="small" style="margin:6px 0 0">⚠ ${esc(r)}.</p>`).join('')}
       ${sourceLine({ name: data.source.name, url: data.source.url, extra: data.per ? 'Per 1,000 uses ONS mid-2025 population' : '' })}`;
   }
 
   async function setMeasure(key) {
     measure = key;
     const m = MAP_MEASURES[key];
-    document.getElementById('perSeg').hidden = !!m.rate;
+    document.getElementById('perSeg').hidden = !!m.rate || mpLayer;
     document.getElementById('mapLegend').innerHTML = loading(m.kind === 'dwp' ? 'Loading from DWP — the first load of a benefit can take up to 30 seconds…' : 'Loading…');
     try {
       const d = await loadShown(key, perK);
@@ -292,10 +437,27 @@ async function mapPage(params) {
     } catch (e) { document.getElementById('mapLegend').innerHTML = errorBox(e); }
     syncUrl();
   }
-  const syncUrl = () => history.replaceState(null, '', `#/map?m=${measure}${MAP_MEASURES[measure].rate ? '' : `&per=${perK ? 1 : 0}`}${selected ? '&area=' + selected : ''}`);
+  const syncUrl = () => history.replaceState(null, '', `#/map?${mpLayer ? 'layer=mps&' : ''}m=${measure}${MAP_MEASURES[measure].rate ? '' : `&per=${perK ? 1 : 0}`}${selected ? '&area=' + selected : ''}`);
 
   function introPanel() {
     const m = MAP_MEASURES[measure];
+    if (mpLayer) {
+      const panel = document.getElementById('mapPanel');
+      if (m.categorical) {
+        panel.innerHTML = `<h3>Click a constituency</h3><p class="small muted">to see its MP: how long they've served, their expenses, and the donations and gifts they've registered.</p>
+          <h4 class="small">Seats by party</h4><ol class="rank-list">${Object.entries(data.counts).sort((a, b) => b[1] - a[1]).map(([p, n]) => `<li>${esc(p)} <b>${n}</b></li>`).join('')}</ol>
+          <p class="small muted">${esc(mps.nextElection.text)}</p>`;
+        return;
+      }
+      const top = Object.entries(data.values).sort((a, b) => b[1] - a[1]);
+      const list = rows => rows.map(([c, v]) => `<li><a href="#" data-code="${c}">${esc(mps.constituencies[c]?.mp || c)}</a> <span class="small muted">${esc(laByCode[c]?.name || '')}</span> <b>${esc(data.format(v))}</b></li>`).join('');
+      panel.innerHTML = `<h3>Click a constituency</h3><p class="small muted">to see its MP's full record. Or start with:</p>
+        <h4 class="small">Highest — ${esc(m.short)}</h4><ol class="rank-list">${list(top.slice(0, 5))}</ol>
+        ${m.zeroClass
+          ? `<p class="small muted">${nf(data.zeroCount)} of ${nf(data.count)} MPs have registered none.</p>`
+          : `<h4 class="small">Lowest</h4><ol class="rank-list">${list(top.slice(-5).reverse())}</ol>`}`;
+      return;
+    }
     const top = Object.entries(data.values).sort((a, b) => b[1] - a[1]);
     const list = rows => rows.map(([c, v]) => `<li><a href="#" data-code="${c}">${esc(laByCode[c]?.name || c)}</a> <b>${data.format(v)}</b></li>`).join('');
     document.getElementById('mapPanel').innerHTML = m.kind === 'regional'
@@ -322,12 +484,14 @@ async function mapPage(params) {
     }
     syncUrl();
     renderPanel(code);
-    if (innerWidth < 860) document.getElementById('mapPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // The MP profile sits under the map (full width), so bring it into view; on phones every panel does.
+    if (mpLayer || innerWidth < 860) document.getElementById('mapPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   // Side panel: every measure for the chosen area, grouped. Counts show the number
   // and the rate per 1,000 residents, and rank uses the per-1,000 figure.
   async function renderPanel(code) {
+    if (mpLayer) return renderMpPanel(code, mps, () => selected === code);
     const la = laByCode[code];
     const panel = document.getElementById('mapPanel');
     const row = async k => {
@@ -345,6 +509,7 @@ async function mapPage(params) {
         if (!m.rate && shown.values[code] != null) sub.push(`${shown.format(shown.values[code])}`);
         if (m.kind !== 'regional' && shown.rank[code]) sub.push(`${ordinal(shown.rank[code])} highest of ${shown.count}`);
         if (shown.uk != null) sub.push(`${shown.ukLabel || 'UK'} ${shown.format(shown.uk)}`);
+        if (raw.notes?.[code]) sub.push(raw.notes[code]);
         return `<tr${hl}>${label}<td>${main}${sub.map(s => `<div class="small muted">${esc(s)}</div>`).join('')}</td></tr>`;
       } catch { return ''; }
     };
@@ -392,7 +557,9 @@ async function mapPage(params) {
   const choose = code => { matches = []; draw(); input.value = laByCode[code].name; select(code, true); };
   input.addEventListener('input', () => {
     const q = input.value.trim().toLowerCase();
-    matches = q ? las.filter(a => a.name.toLowerCase().includes(q)).sort((a, b) => a.name.toLowerCase().indexOf(q) - b.name.toLowerCase().indexOf(q)).slice(0, 8) : [];
+    // (On the MP layer, "region" holds the MP's name, so you can search by MP too.)
+    matches = q ? places.filter(a => a.name.toLowerCase().includes(q) || (mpLayer && a.region.toLowerCase().includes(q)))
+      .sort((a, b) => a.name.toLowerCase().indexOf(q) - b.name.toLowerCase().indexOf(q)).slice(0, 8) : [];
     active = 0; draw();
   });
   input.addEventListener('keydown', e => {
@@ -407,6 +574,7 @@ async function mapPage(params) {
   onRedraw(() => { if (data) layer.setStyle(style); map.invalidateSize(); });
 
   if (MAP_MEASURES[measure].kind === 'dwp' && !st.configured) measure = 'claimRate';
+  if (mpLayer) map.attributionControl.addAttribution('MPs: <a href="https://members.parliament.uk" target="_blank" rel="noopener">UK Parliament</a> (OPL)');
   await setMeasure(measure);
   if (selected && layers[selected]) select(selected, true);
 }

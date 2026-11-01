@@ -49,6 +49,8 @@ const PROXIES = {
   '/api/ons/search': 'https://api.beta.ons.gov.uk/v1/search',
   '/api/ons/site': 'https://www.ons.gov.uk',
   '/api/nomis': 'https://www.nomisweb.co.uk/api/v01/dataset',
+  '/api/parl/interests': 'https://interests-api.parliament.uk/api/v1',
+  '/api/parl/members': 'https://members-api.parliament.uk/api',
 };
 
 async function proxy(req, res, prefix, target) {
