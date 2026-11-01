@@ -194,6 +194,8 @@ async function main() {
   await buildBills();
   await buildMps();
   await buildDonations();
+  await buildFood();
+  await buildFuel();
 }
 
 // ---------------------------------------------------------------- immigration
@@ -943,8 +945,67 @@ async function buildDonations() {
   console.log(`Wrote donations.json (${donations.length} donations to ${latest}; parties: ${tracked.map(id => names[id]).join(', ')})`);
 }
 
+// Average shop prices of grocery items, monthly since January 2021: the data behind the ONS
+// Shopping Prices Comparison Tool (published on GitHub by the ONS each month with CPI).
+const SPCT_XLSX = 'https://github.com/onsdigital/cpi-items-actions/raw/main/datadownload.xlsx';
+
+async function buildFood() {
+  console.log('Downloading ONS shopping prices (average prices)…');
+  const wb = XLSX.read(Buffer.from(await (await politeFetch(SPCT_XLSX)).arrayBuffer()));
+  const meta = XLSX.utils.sheet_to_json(wb.Sheets.Metadata).filter(m => m.Category1 === 'Groceries');
+  const ym = v => String(v).slice(0, 7);
+  const prices = {};
+  for (const r of XLSX.utils.sheet_to_json(wb.Sheets['Average price'])) {
+    if (r.Category1 !== 'Groceries' || !isFinite(r.AVERAGE_PRICE)) continue;
+    (prices[r.ID_DESC] = prices[r.ID_DESC] || {})[ym(r.INDEX_DATE)] = r.AVERAGE_PRICE;
+  }
+  const months = [...new Set(Object.values(prices).flatMap(p => Object.keys(p)))].sort();
+  const latest = months[months.length - 1];
+  const items = meta.filter(m => prices[m.ID_DESC] && prices[m.ID_DESC][latest] != null).map(m => ({
+    name: m.ID_DESC.replace(/\s*\(e\.g\.[^)]*\)/g, '').trim(), size: m.WEIGHT_SIZE, cat: m.Category2,
+    prices: months.map(k => (prices[m.ID_DESC][k] != null ? Math.round(prices[m.ID_DESC][k] * 100) / 100 : null)),
+  })).sort((a, b) => a.cat.localeCompare(b.cat) || a.name.localeCompare(b.name));
+  const out = {
+    source: { title: 'ONS Shopping Prices Comparison Tool (average prices from consumer price inflation)', page: 'https://www.ons.gov.uk/economy/inflationandpriceindices/articles/shoppingpricescomparisontool/2023-05-03', data: SPCT_XLSX },
+    builtAt: new Date().toISOString(), months, items,
+  };
+  fs.writeFileSync(path.join(OUT, 'food.json'), JSON.stringify(out));
+  console.log(`Wrote food.json (${items.length} grocery items, ${months[0]} to ${latest})`);
+}
+
+// Weekly UK average pump prices (DESNZ), with fuel duty and VAT. The gov.uk page lists the
+// newest CSV files, so find them through the content API rather than a fixed address.
+async function buildFuel() {
+  console.log('Downloading DESNZ weekly road fuel prices…');
+  const page = await getJson('https://www.gov.uk/api/content/government/statistics/weekly-road-fuel-prices');
+  const csvs = (page.details.attachments || []).filter(a => /csv/i.test(a.content_type) || /\.csv$/i.test(a.url));
+  const weeks = {};
+  for (const a of csvs) {
+    const rows = (await getText(a.url)).replace(/^﻿/, '').trim().split(/\r?\n/).slice(1);
+    for (const line of rows) {
+      const c = line.split(',');
+      const m = c[0].match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (!m || !isFinite(Number(c[1])) || c[1] === '') continue;
+      weeks[`${m[3]}-${m[2]}-${m[1]}`] = { petrol: Number(c[1]), diesel: Number(c[2]), dutyPetrol: Number(c[3]), dutyDiesel: Number(c[4]), vat: Number(c[5]) };
+    }
+  }
+  const dates = Object.keys(weeks).sort();
+  const col = k => dates.map(dt => weeks[dt][k]);
+  const out = {
+    source: { title: 'Department for Energy Security and Net Zero, weekly road fuel prices', page: 'https://www.gov.uk/government/statistics/weekly-road-fuel-prices', updated: page.public_updated_at },
+    builtAt: new Date().toISOString(), dates,
+    petrol: col('petrol'), diesel: col('diesel'), dutyPetrol: col('dutyPetrol'), dutyDiesel: col('dutyDiesel'), vat: col('vat'),
+  };
+  fs.writeFileSync(path.join(OUT, 'fuel.json'), JSON.stringify(out));
+  console.log(`Wrote fuel.json (${dates.length} weeks, ${dates[0]} to ${dates[dates.length - 1]})`);
+}
+
 // `npm run build-data -- immigration` (or `-- spending`, `-- mps`) rebuilds just that file.
-if (process.argv[2] === 'donations') {
+if (process.argv[2] === 'food') {
+  buildFood().catch(e => { console.error(e); process.exit(1); });
+} else if (process.argv[2] === 'fuel') {
+  buildFuel().catch(e => { console.error(e); process.exit(1); });
+} else if (process.argv[2] === 'donations') {
   buildDonations().catch(e => { console.error(e); process.exit(1); });
 } else if (process.argv[2] === 'mps') {
   buildMps().catch(e => { console.error(e); process.exit(1); });

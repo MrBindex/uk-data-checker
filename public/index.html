@@ -27,7 +27,14 @@
         <a href="#/search" data-nav="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Search</a>
         <a href="#/bulletins" data-nav="bulletins"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 12h7M9 16h7"/></svg>Bulletins</a>
         <a href="#/map" data-nav="map"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>Map</a>
-        <a href="#/bills" data-nav="bills"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>Bills</a>
+        <div class="nav-drop" id="billsMenu">
+          <button type="button" class="nav-drop-btn" data-nav-any="bills,food,fuel" aria-expanded="false" aria-controls="billsMenuList"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>Bills<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+          <div class="nav-menu" id="billsMenuList">
+            <a href="#/bills" data-nav="bills"><span class="nm-icon ic-orange"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></span><span><b>Household bills</b><small>Energy price cap, gas, electricity and water</small></span></a>
+            <a href="#/food" data-nav="food"><span class="nm-icon ic-green"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h2l2.5 11h11L21 9H6.5"/><circle cx="9" cy="20.5" r="1.3"/><circle cx="17" cy="20.5" r="1.3"/></svg></span><span><b>Food shop</b><small>Grocery prices and food inflation</small></span></a>
+            <a href="#/fuel" data-nav="fuel"><span class="nm-icon ic-blue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16M3 21h13M4 11h11"/><path d="M15 8h2a2 2 0 0 1 2 2v6a1.5 1.5 0 0 0 3 0V8l-3-3"/></svg></span><span><b>Fuel prices</b><small>Petrol and diesel at the pump</small></span></a>
+          </div>
+        </div>
         <a href="#/areas" data-nav="areas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>Your area</a>
         <div class="nav-drop" id="taxMenu">
           <button type="button" class="nav-drop-btn" data-nav-any="regions,spending,revenue,debt,parties,donations" aria-expanded="false" aria-controls="taxMenuList"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Tax &amp; spending<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
@@ -61,7 +68,7 @@
       </div>
       <div>
         <h4>Explore</h4>
-        <a href="#/search">Search ONS data</a><a href="#/bulletins">Bulletins</a><a href="#/map">Map of the UK</a><a href="#/areas">Your area</a><a href="#/bills">Household bills</a><a href="#/spending">How the government spends money</a><a href="#/revenue">Where the money comes from</a><a href="#/debt">Government debt</a><a href="#/parties">Party budget plans</a><a href="#/donations">Party donations</a><a href="#/regions">Tax &amp; spending by region</a><a href="#/guide">Fact-check guide</a>
+        <a href="#/search">Search ONS data</a><a href="#/bulletins">Bulletins</a><a href="#/map">Map of the UK</a><a href="#/areas">Your area</a><a href="#/bills">Household bills</a><a href="#/food">Food shop</a><a href="#/fuel">Fuel prices</a><a href="#/spending">How the government spends money</a><a href="#/revenue">Where the money comes from</a><a href="#/debt">Government debt</a><a href="#/parties">Party budget plans</a><a href="#/donations">Party donations</a><a href="#/regions">Tax &amp; spending by region</a><a href="#/guide">Fact-check guide</a>
       </div>
       <div>
         <h4>Sources</h4>
@@ -87,6 +94,8 @@
   <script src="js/spending.js"></script>
   <script src="js/revenue.js"></script>
   <script src="js/bills.js"></script>
+  <script src="js/food.js"></script>
+  <script src="js/fuel.js"></script>
   <script src="js/debt.js"></script>
   <script src="js/parties.js"></script>
   <script src="js/donations.js"></script>

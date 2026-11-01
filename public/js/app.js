@@ -114,7 +114,7 @@ const HEADLINES = [
 
 // ---------------------------------------------------------------- router
 const routes = {
-  '': home, search, series, areas, area, regions, guide, map: mapPage, bulletins: bulletinsPage, read: readPage, spending: spendingPage, revenue: revenuePage, bills: billsPage, debt: debtPage, parties: partiesPage, donations: donationsPage,
+  '': home, search, series, areas, area, regions, guide, map: mapPage, bulletins: bulletinsPage, read: readPage, spending: spendingPage, revenue: revenuePage, bills: billsPage, debt: debtPage, parties: partiesPage, donations: donationsPage, food: foodPage, fuel: fuelPage,
 };
 async function router() {
   const [pathPart, qs] = location.hash.replace(/^#\/?/, '').split('?');
