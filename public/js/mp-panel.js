@@ -75,6 +75,9 @@ async function renderMpPanel(code, mps, stillCurrent) {
     </section></div>
 
     <section class="mp-register-wrap">
+    ${heading('How they voted recently')}
+    <div id="mpVotes">${loading('Loading recent Commons votes…')}</div>
+    <div class="controls" style="margin:12px 0 22px"><a class="btn ghost" href="https://votes.parliament.uk/votes/commons/membervoting/${c.memberId}" target="_blank" rel="noopener">Every vote on parliament.uk ↗</a></div>
     ${heading('Donations, gifts and hospitality')}
     <div class="mp-reg-sum">
       <div><b>£${nf(reg.donations?.value || 0)}</b><span>Donations (${reg.donations?.count || 0})</span></div>
@@ -90,6 +93,13 @@ async function renderMpPanel(code, mps, stillCurrent) {
     ${sourceLine({ name: 'UK Parliament and IPSA', url: mps.sources.members.page, extra: `Figures checked ${date(mps.builtAt)} · <a href="${esc(mps.sources.ipsa.page)}" target="_blank" rel="noopener">IPSA</a> · <a href="${esc(mps.sources.register.page)}" target="_blank" rel="noopener">Register of Interests</a>` })}`;
 
   document.getElementById('backToMap').onclick = () => document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+  // Recent Commons votes (divisions), live from Parliament via our server.
+  api(`/api/parl/votes/divisions.json/membervoting?queryParameters.memberId=${c.memberId}&queryParameters.take=15`).then(list => {
+    const vb = document.getElementById('mpVotes');
+    if (!stillCurrent() || !vb) return;
+    vb.innerHTML = list.length ? `<ul class="mp-votes">${list.map(v => { const d = v.PublishedDivision, passed = d.AyeCount > d.NoCount; const how = v.MemberWasTeller ? 'Teller' : v.MemberVotedAye ? 'Aye' : 'No'; return `<li><span class="vote-how ${how === 'Aye' ? 'aye' : how === 'No' ? 'no' : ''}">${how}</span><div><a href="https://votes.parliament.uk/votes/commons/division/${d.DivisionId}" target="_blank" rel="noopener">${esc(d.Title)}</a><small>${esc(longDate(d.Date.slice(0, 10)))} · ${passed ? 'Passed' : 'Rejected'} ${d.AyeCount}–${d.NoCount}</small></div></li>`; }).join('')}</ul><p class="small muted" style="margin:8px 0 0">MPs miss votes for many reasons (ministerial duties, illness, “pairing”), so a missing vote isn’t necessarily absence. Votes on amendments can be hard to read without context — follow the link for details.</p>` : '<p class="small muted">No recorded votes yet in this Parliament.</p>';
+  }).catch(() => { const vb = document.getElementById('mpVotes'); if (vb) vb.innerHTML = '<p class="small muted">Couldn\x27t load votes right now — use the link below.</p>'; });
 
   // Latest register entries (newest first), straight from Parliament via our server.
   const box = () => document.getElementById('mpRegister');

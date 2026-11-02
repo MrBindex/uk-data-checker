@@ -51,6 +51,7 @@ const PROXIES = {
   '/api/nomis': 'https://www.nomisweb.co.uk/api/v01/dataset',
   '/api/parl/interests': 'https://interests-api.parliament.uk/api/v1',
   '/api/parl/members': 'https://members-api.parliament.uk/api',
+  '/api/parl/votes': 'https://commonsvotes-api.parliament.uk/data',
 };
 
 async function proxy(req, res, prefix, target) {
@@ -266,7 +267,9 @@ function serveStatic(req, res, url) {
   if (!file.startsWith(PUBLIC)) return send(res, 403, { error: 'Forbidden' });
   fs.readFile(file, (err, data) => {
     if (err) return send(res, 404, { error: 'Not found' });
-    const headers = { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' };
+    // "no-cache" = browsers may keep a copy but must check it's current, so visitors get site
+    // updates straight away instead of a stale script.
+    const headers = { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' };
     // Compress text files (the map boundaries shrink from ~560 KB to ~150 KB).
     if (/\.(json|js|css|html)$/.test(file) && /\bgzip\b/.test(req.headers['accept-encoding'] || '')) {
       data = zlib.gzipSync(data);

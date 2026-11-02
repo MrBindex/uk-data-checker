@@ -24,30 +24,69 @@
         <span class="brand-name">UK Data <b>Checker</b></span>
       </a>
       <nav class="nav" aria-label="Main">
-        <a href="#/search" data-nav="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Search</a>
-        <a href="#/bulletins" data-nav="bulletins"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 12h7M9 16h7"/></svg>Bulletins</a>
+        <div class="nav-drop left" id="dataMenu">
+          <button type="button" class="nav-drop-btn" data-nav-any="search,bulletins,new" aria-expanded="false" aria-controls="dataMenuList"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Data<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+          <div class="nav-menu" id="dataMenuList">
+            <a href="#/search" data-nav="search"><span class="nm-icon ic-blue"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span><span><b>Search ONS data</b><small>Every official series, charted</small></span></a>
+            <a href="#/bulletins" data-nav="bulletins"><span class="nm-icon ic-violet"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 12h7M9 16h7"/></svg></span><span><b>Bulletins</b><small>Read ONS reports with quick summaries</small></span></a>
+            <a href="#/new" data-nav="new"><span class="nm-icon ic-green"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg></span><span><b>What’s new</b><small>Latest releases and what’s coming up</small></span></a>
+          </div>
+        </div>
         <a href="#/map" data-nav="map"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>Map</a>
-        <div class="nav-drop" id="billsMenu">
-          <button type="button" class="nav-drop-btn" data-nav-any="bills,food,fuel" aria-expanded="false" aria-controls="billsMenuList"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>Bills<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="nav-drop left" id="areaMenu">
+          <button type="button" class="nav-drop-btn" data-nav-any="postcode,areas,compare" aria-expanded="false" aria-controls="areaMenuList"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>Your area<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+          <div class="nav-menu" id="areaMenuList">
+            <a href="#/postcode" data-nav="postcode"><span class="nm-icon ic-blue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg></span><span><b>Look up a postcode</b><small>Your council, MP, prices, crime and more</small></span></a>
+            <a href="#/areas" data-nav="areas"><span class="nm-icon ic-violet"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></span><span><b>Choose a council</b><small>Jobs, benefits and tax by council area</small></span></a>
+            <a href="#/compare" data-nav="compare"><span class="nm-icon ic-green"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3v18M16 3v18M3 8h5M16 16h5"/></svg></span><span><b>Compare two areas</b><small>Side by side, with UK rankings</small></span></a>
+          </div>
+        </div>
+        <div class="nav-drop left" id="billsMenu">
+          <button type="button" class="nav-drop-btn" data-nav-any="bills,food,fuel,mortgages,council-tax,wages,my-inflation" aria-expanded="false" aria-controls="billsMenuList"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>Cost of living<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
           <div class="nav-menu" id="billsMenuList">
             <a href="#/bills" data-nav="bills"><span class="nm-icon ic-orange"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></span><span><b>Household bills</b><small>Energy price cap, gas, electricity and water</small></span></a>
             <a href="#/food" data-nav="food"><span class="nm-icon ic-green"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h2l2.5 11h11L21 9H6.5"/><circle cx="9" cy="20.5" r="1.3"/><circle cx="17" cy="20.5" r="1.3"/></svg></span><span><b>Food shop</b><small>Grocery prices and food inflation</small></span></a>
             <a href="#/fuel" data-nav="fuel"><span class="nm-icon ic-blue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16M3 21h13M4 11h11"/><path d="M15 8h2a2 2 0 0 1 2 2v6a1.5 1.5 0 0 0 3 0V8l-3-3"/></svg></span><span><b>Fuel prices</b><small>Petrol and diesel at the pump</small></span></a>
+            <a href="#/mortgages" data-nav="mortgages"><span class="nm-icon ic-violet"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg></span><span><b>Mortgages and rent</b><small>Rates, repayments and rent vs buy</small></span></a>
+            <a href="#/council-tax" data-nav="council-tax"><span class="nm-icon ic-orange"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21h16M6 18V10M10 18V10M14 18V10M18 18V10M3 8l9-5 9 5z"/></svg></span><span><b>Council tax</b><small>Band D bill for every council in England</small></span></a>
+            <a href="#/wages" data-nav="wages"><span class="nm-icon ic-green"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 7l12-4v4M16 13h2"/></svg></span><span><b>Wages vs prices</b><small>Is pay beating inflation?</small></span></a>
+            <a href="#/my-inflation" data-nav="my-inflation"><span class="nm-icon ic-blue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/></svg></span><span><b>Your inflation rate</b><small>Based on what you actually spend</small></span></a>
           </div>
         </div>
-        <a href="#/areas" data-nav="areas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>Your area</a>
         <div class="nav-drop" id="taxMenu">
-          <button type="button" class="nav-drop-btn" data-nav-any="regions,spending,revenue,debt,parties,donations" aria-expanded="false" aria-controls="taxMenuList"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Tax &amp; spending<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+          <button type="button" class="nav-drop-btn" data-nav-any="spending,revenue,debt,regions" aria-expanded="false" aria-controls="taxMenuList"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Tax &amp; spending<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
           <div class="nav-menu" id="taxMenuList">
             <a href="#/spending" data-nav="spending"><span class="nm-icon ic-violet"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9v9z"/><path d="M12 3a9 9 0 0 1 9 9h-9z"/></svg></span><span><b>How the government spends money</b><small>Where every £100 of public spending goes</small></span></a>
             <a href="#/revenue" data-nav="revenue"><span class="nm-icon ic-green"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M17 7H9.5a3 3 0 0 0 0 6h5a3 3 0 0 1 0 6H6"/></svg></span><span><b>Where the money comes from</b><small>Income Tax, VAT, National Insurance and every other tax</small></span></a>
             <a href="#/debt" data-nav="debt"><span class="nm-icon ic-orange"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span><span><b>Government debt</b><small>How much debt each Prime Minister added</small></span></a>
-            <a href="#/parties" data-nav="parties"><span class="nm-icon ic-violet"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21h16M6 18V10M10 18V10M14 18V10M18 18V10M3 8l9-5 9 5z"/></svg></span><span><b>Party budget plans</b><small>What each party would raise, save and spend</small></span></a>
-            <a href="#/donations" data-nav="donations"><span class="nm-icon ic-green"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12v9H4v-9M2 7h20v5H2zM12 21V7"/><path d="M12 7H8.5a2.5 2.5 0 1 1 0-5C11 2 12 7 12 7zM12 7h3.5a2.5 2.5 0 1 0 0-5C13 2 12 7 12 7z"/></svg></span><span><b>Party donations</b><small>Who gives money to each party, and how much</small></span></a>
             <a href="#/regions" data-nav="regions"><span class="nm-icon ic-blue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span><span><b>Tax &amp; spending by region</b><small>What each region raises and receives</small></span></a>
           </div>
         </div>
-        <a href="#/guide" data-nav="guide"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6l-8-3z"/><path d="m9 12 2 2 4-4"/></svg>Fact-check guide</a>
+        <div class="nav-drop" id="servicesMenu">
+          <button type="button" class="nav-drop-btn" data-nav-any="nhs,schools,border" aria-expanded="false" aria-controls="servicesMenuList"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M8 11h2l1-2 2 4 1-2h2"/></svg>Public services<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+          <div class="nav-menu" id="servicesMenuList">
+            <a href="#/nhs" data-nav="nhs"><span class="nm-icon ic-blue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M8 11h2l1-2 2 4 1-2h2"/></svg></span><span><b>NHS waiting times</b><small>Waiting list, 18-week target and A&amp;E</small></span></a>
+            <a href="#/schools" data-nav="schools"><span class="nm-icon ic-violet"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m2 9 10-5 10 5-10 5z"/><path d="M6 11v5c3 2 9 2 12 0v-5"/></svg></span><span><b>Schools</b><small>Class sizes and free school meals</small></span></a>
+            <a href="#/border" data-nav="border"><span class="nm-icon ic-orange"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17c2 2 4 2 6 0s4-2 6 0 4 2 6 0"/><path d="M5 14 4 10h16l-1 4M12 10V4l5 6"/></svg></span><span><b>Small boats and asylum</b><small>Channel crossings and the asylum backlog</small></span></a>
+          </div>
+        </div>
+        <div class="nav-drop" id="politicsMenu">
+          <button type="button" class="nav-drop-btn" data-nav-any="pledges,parties,donations,ministers,mps" aria-expanded="false" aria-controls="politicsMenuList"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg>Politics<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+          <div class="nav-menu" id="politicsMenuList">
+            <a href="#/pledges" data-nav="pledges"><span class="nm-icon ic-green"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg></span><span><b>Pledge tracker</b><small>Government promises vs official figures</small></span></a>
+            <a href="#/parties" data-nav="parties"><span class="nm-icon ic-violet"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21h16M6 18V10M10 18V10M14 18V10M18 18V10M3 8l9-5 9 5z"/></svg></span><span><b>Party budget plans</b><small>What each party would raise, save and spend</small></span></a>
+            <a href="#/donations" data-nav="donations"><span class="nm-icon ic-green"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12v9H4v-9M2 7h20v5H2zM12 21V7"/><path d="M12 7H8.5a2.5 2.5 0 1 1 0-5C11 2 12 7 12 7zM12 7h3.5a2.5 2.5 0 1 0 0-5C13 2 12 7 12 7z"/></svg></span><span><b>Party donations</b><small>Who gives money to each party</small></span></a>
+            <a href="#/ministers" data-nav="ministers"><span class="nm-icon ic-orange"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12v9H4v-9M2 7h20v5H2zM12 21V7"/><path d="M12 7H8.5a2.5 2.5 0 1 1 0-5C11 2 12 7 12 7zM12 7h3.5a2.5 2.5 0 1 0 0-5C13 2 12 7 12 7z"/></svg></span><span><b>Ministers’ gifts &amp; hospitality</b><small>Every declaration, searchable</small></span></a>
+            <a href="#/map?layer=mps" data-nav="mps"><span class="nm-icon ic-blue"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg></span><span><b>Your MP</b><small>Votes, expenses and donations on the map</small></span></a>
+          </div>
+        </div>
+        <div class="nav-drop" id="checkMenu">
+          <button type="button" class="nav-drop-btn" data-nav-any="check,guide" aria-expanded="false" aria-controls="checkMenuList"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6l-8-3z"/><path d="m9 12 2 2 4-4"/></svg>Fact-check<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+          <div class="nav-menu" id="checkMenuList">
+            <a href="#/check" data-nav="check"><span class="nm-icon ic-blue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H8l-4 4z"/><path d="m9 10 2 2 4-4"/></svg></span><span><b>Check a claim</b><small>Find the official figures behind a claim</small></span></a>
+            <a href="#/guide" data-nav="guide"><span class="nm-icon ic-green"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6l-8-3z"/><path d="m9 12 2 2 4-4"/></svg></span><span><b>Spotting misleading stats</b><small>Tips and chart tricks to watch for</small></span></a>
+          </div>
+        </div>
       </nav>
       <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch light or dark theme">
         <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>
@@ -68,7 +107,11 @@
       </div>
       <div>
         <h4>Explore</h4>
-        <a href="#/search">Search ONS data</a><a href="#/bulletins">Bulletins</a><a href="#/map">Map of the UK</a><a href="#/areas">Your area</a><a href="#/bills">Household bills</a><a href="#/food">Food shop</a><a href="#/fuel">Fuel prices</a><a href="#/spending">How the government spends money</a><a href="#/revenue">Where the money comes from</a><a href="#/debt">Government debt</a><a href="#/parties">Party budget plans</a><a href="#/donations">Party donations</a><a href="#/regions">Tax &amp; spending by region</a><a href="#/guide">Fact-check guide</a>
+        <a href="#/map">Map of the UK</a><a href="#/search">Search ONS data</a><a href="#/bulletins">Bulletins</a><a href="#/new">What’s new</a><a href="#/postcode">Look up a postcode</a><a href="#/areas">Choose a council</a><a href="#/compare">Compare two areas</a><a href="#/bills">Household bills</a><a href="#/food">Food shop</a><a href="#/fuel">Fuel prices</a><a href="#/mortgages">Mortgages and rent</a><a href="#/council-tax">Council tax</a><a href="#/wages">Wages vs prices</a><a href="#/my-inflation">Your inflation rate</a>
+      </div>
+      <div>
+        <h4>More</h4>
+        <a href="#/spending">How the government spends money</a><a href="#/revenue">Where the money comes from</a><a href="#/debt">Government debt</a><a href="#/regions">Tax &amp; spending by region</a><a href="#/nhs">NHS waiting times</a><a href="#/schools">Schools</a><a href="#/border">Small boats and asylum</a><a href="#/pledges">Pledge tracker</a><a href="#/parties">Party budget plans</a><a href="#/donations">Party donations</a><a href="#/ministers">Ministers’ gifts &amp; hospitality</a><a href="#/check">Check a claim</a><a href="#/guide">Spotting misleading stats</a>
       </div>
       <div>
         <h4>Sources</h4>
@@ -77,6 +120,9 @@
         <a href="https://www.nomisweb.co.uk" target="_blank" rel="noopener">Nomis labour market data</a>
         <a href="https://www.gov.uk/government/statistical-data-sets/immigration-system-statistics-regional-and-local-authority-data" target="_blank" rel="noopener">Home Office statistics</a>
         <a href="https://search.electoralcommission.org.uk" target="_blank" rel="noopener">Electoral Commission</a>
+        <a href="https://www.england.nhs.uk/statistics/" target="_blank" rel="noopener">NHS England statistics</a>
+        <a href="https://www.bankofengland.co.uk/boeapps/database" target="_blank" rel="noopener">Bank of England</a>
+        <a href="https://explore-education-statistics.service.gov.uk" target="_blank" rel="noopener">DfE education statistics</a>
       </div>
     </div>
     <div class="wrap footer-legal">
@@ -99,6 +145,11 @@
   <script src="js/debt.js"></script>
   <script src="js/parties.js"></script>
   <script src="js/donations.js"></script>
+  <script src="js/living.js"></script>
+  <script src="js/services.js"></script>
+  <script src="js/politics.js"></script>
+  <script src="js/factcheck.js"></script>
+  <script src="js/place.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

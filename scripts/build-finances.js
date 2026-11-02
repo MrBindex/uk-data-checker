@@ -186,16 +186,14 @@ async function main() {
   fs.writeFileSync(path.join(OUT, 'la-boundaries.json'), JSON.stringify(geo));
   console.log(`Wrote la-boundaries.json (${geo.features.length} of ${las.length} areas)`);
 
-  await buildImmigration(las);
-  await buildSpending();
-  await buildRevenue();
-  await buildCrime(las);
-  await buildHousing(las);
-  await buildBills();
-  await buildMps();
-  await buildDonations();
-  await buildFood();
-  await buildFuel();
+  // One source being down shouldn't stop the rest: keep going, then report what failed.
+  const failed = [];
+  const steps = [() => buildImmigration(las), buildSpending, buildRevenue, () => buildCrime(las), () => buildHousing(las), buildBills, buildMps,
+    buildDonations, buildFood, buildFuel, buildLiving, buildNhs, buildBorder, buildSchools, buildMinisters];
+  for (const step of steps) {
+    try { await step(); } catch (e) { failed.push(e.message); console.error(`  Failed: ${e.message}`); }
+  }
+  if (failed.length) { console.error(`${failed.length} source(s) failed; their previous files were kept.`); process.exitCode = 1; }
 }
 
 // ---------------------------------------------------------------- immigration
@@ -1000,8 +998,286 @@ async function buildFuel() {
   console.log(`Wrote fuel.json (${dates.length} weeks, ${dates[0]} to ${dates[dates.length - 1]})`);
 }
 
+// ---------------------------------------------------------------- cost of living extras
+// Bank of England mortgage rates and Bank Rate (monthly), plus Band D council tax by area.
+const BOE_CSV = 'https://www.bankofengland.co.uk/boeapps/database/_iadb-fromshowcolumns.asp';
+const BOE_SERIES = {
+  IUMBV34: '2-year fixed (75% loan-to-value)', IUMBV42: '5-year fixed (75% loan-to-value)',
+  IUMTLMV: 'Standard variable rate', IUDBEDR: 'Bank Rate',
+};
+
+async function fetchBoe() {
+  const q = new URLSearchParams({ 'csv.x': 'yes', Datefrom: '01/Jan/2000', Dateto: 'now', SeriesCodes: Object.keys(BOE_SERIES).join(','), CSVF: 'TN', UsingCodes: 'Y', VPD: 'Y', VFD: 'N' });
+  const r = await fetch(`${BOE_CSV}?${q}`, { headers: { 'User-Agent': 'Mozilla/5.0 (UK Data Checker build script)' } });
+  if (!r.ok) throw new Error(`Bank of England ${r.status}`);
+  const lines = (await r.text()).trim().split(/\r?\n/);
+  const head = lines[0].split(',');
+  const MONS = { Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06', Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12' };
+  const byMonth = {};
+  for (const line of lines.slice(1)) {
+    const c = line.split(','), m = c[0].match(/^(\d{2}) (\w{3}) (\d{4})$/);
+    if (!m) continue;
+    const k = `${m[3]}-${MONS[m[2]]}`;
+    // Keep the last value in each month (Bank Rate is daily; mortgage rates are month-end).
+    head.slice(1).forEach((code, i) => { if (c[i + 1] !== '' && c[i + 1] != null) (byMonth[k] = byMonth[k] || {})[code] = Number(c[i + 1]); });
+  }
+  const months = Object.keys(byMonth).sort();
+  return {
+    source: { title: 'Bank of England Statistical Interactive Database (quoted household interest rates; Bank Rate)', page: 'https://www.bankofengland.co.uk/boeapps/database' },
+    months, series: Object.entries(BOE_SERIES).map(([code, name]) => ({ code, name, values: months.map(k => byMonth[k][code] ?? null) })),
+  };
+}
+
+// MHCLG publishes one workbook a year; Table 10 has the average Band D for every council.
+async function councilTaxYear(slug) {
+  const page = await getJson(`https://www.gov.uk/api/content/government/statistics/${slug}`);
+  const att = (page.details.attachments || []).find(a => /Table[ _]10/i.test(a.title + a.url));
+  if (!att) throw new Error(`No Table 10 in ${slug}`);
+  const tmp = path.join(require('os').tmpdir(), `ct-${slug}.ods`);
+  fs.writeFileSync(tmp, Buffer.from(await (await politeFetch(att.url)).arrayBuffer()));
+  const { readRows } = require('./ods-stream');
+  let head = null;
+  const rows = {};
+  await readRows(tmp, (sheet, c) => {
+    if (sheet !== 'Data_Billing') return;
+    if (!head && c[0] === 'E-code') { head = c; return; }
+    if (!head || !/^E0[6-9]/.test(c[1] || '')) return;
+    const col = re => head.findIndex(h => re.test(String(h).replace(/\s+/g, ' ')));
+    const total = Number(c[col(/^17\. Average/)]);
+    const own = Number(c[col(/^8\. Average .*\(current year\)/)]);
+    const ownPrev = Number(c[col(/^8\. Average .*\(previous year\)/)]);
+    rows[c[1]] = { name: c[2], total: isFinite(total) ? Math.round(total * 100) / 100 : null, own, ownPrev };
+  });
+  fs.unlinkSync(tmp);
+  return { title: page.title, url: `https://www.gov.uk/government/statistics/${slug}`, rows };
+}
+
+async function buildLiving() {
+  console.log('Downloading Bank of England mortgage rates…');
+  const out = { builtAt: new Date().toISOString(), mortgages: await fetchBoe() };
+  console.log('Downloading council tax levels (England)…');
+  const y = new Date().getUTCMonth() >= 2 ? new Date().getUTCFullYear() : new Date().getUTCFullYear() - 1;
+  let cur;
+  let start = y;
+  for (; start > y - 3; start--) {
+    try { cur = await councilTaxYear(`council-tax-levels-set-by-local-authorities-in-england-${start}-to-${start + 1}`); break; } catch (e) { console.warn(`  ${e.message}`); }
+  }
+  const prev = await councilTaxYear(`council-tax-levels-set-by-local-authorities-in-england-${start - 1}-to-${start}`).catch(() => null);
+  out.councilTax = {
+    year: `${start}-${String(start + 1).slice(2)}`, prevYear: `${start - 1}-${String(start).slice(2)}`,
+    source: { title: cur.title, page: cur.url },
+    areas: Object.entries(cur.rows).map(([code, r]) => ({ code, name: r.name, bandD: r.total, prev: prev?.rows[code]?.total ?? null })).filter(a => a.bandD).sort((a, b) => a.name.localeCompare(b.name)),
+  };
+  fs.writeFileSync(path.join(OUT, 'living.json'), JSON.stringify(out));
+  console.log(`Wrote living.json (mortgage rates to ${out.mortgages.months.at(-1)}; council tax ${out.councilTax.year} for ${out.councilTax.areas.length} councils)`);
+}
+
+// ---------------------------------------------------------------- public services
+const NHS_STATS = 'https://www.england.nhs.uk/statistics/statistical-work-areas';
+async function nhsFile(listPage, re) {
+  const html = await getText(listPage);
+  const years = [...html.matchAll(/href="([^"]+-(\d{4})-(\d{2})\/)"/g)].map(m => m[1]).filter((v, i, a) => a.indexOf(v) === i);
+  for (const page of [listPage, ...years]) {
+    const h = page === listPage ? html : await getText(page);
+    const m = h.match(re);
+    if (m) return m[1];
+  }
+  throw new Error(`No file matching ${re} on ${listPage}`);
+}
+
+async function buildNhs() {
+  console.log('Downloading NHS England waiting times…');
+  const rttUrl = await nhsFile(`${NHS_STATS}/rtt-waiting-times/`, /href="([^"]*RTT-Overview-Timeseries[^"]*\.xlsx)"/i);
+  const rtt = XLSX.read(Buffer.from(await (await politeFetch(rttUrl)).arrayBuffer()));
+  const rows = XLSX.utils.sheet_to_json(rtt.Sheets[rtt.SheetNames[0]], { header: 1, defval: '' });
+  const head = rows.find(r => r.some(c => /Median wait/i.test(c)));
+  const col = re => head.findIndex(h => re.test(String(h).replace(/\s+/g, ' ')));
+  const C = { total: col(/^Total waiting \(mil\) with estimates/), pct18: col(/^% within 18 weeks with estimates/), over52: col(/^No\. > 52 weeks with estimates/), median: col(/^Median wait/) };
+  const num = v => (typeof v === 'number' ? v : null);
+  const ymOf = serial => { const d = XLSX.SSF.parse_date_code(serial); return `${d.y}-${String(d.m).padStart(2, '0')}`; };
+  const rttRows = rows.filter(r => typeof r[2] === 'number' && num(r[C.total]) != null);
+  const ae = await nhsFile(`${NHS_STATS}/ae-waiting-times-and-activity/`, /href="([^"]*Monthly-AE-Time-Series[^"]*\.xlsx?)"/i);
+  const aeWb = XLSX.read(Buffer.from(await (await politeFetch(ae)).arrayBuffer()));
+  const perf = XLSX.utils.sheet_to_json(aeWb.Sheets.Performance || aeWb.Sheets[aeWb.SheetNames[1]], { header: 1, defval: '' });
+  const ph = perf.find(r => r.some(c => String(c).trim() === 'Period'));
+  const pc = re => ph.findIndex(h => re.test(String(h).replace(/\s+/g, ' ')));
+  const allPct = pc(/Percentage in 4 hours or less \(all\)/i);
+  const act = XLSX.utils.sheet_to_json(aeWb.Sheets.Activity || aeWb.Sheets[aeWb.SheetNames[0]], { header: 1, defval: '' });
+  const ah = act.find(r => r.some(c => String(c).trim() === 'Period'));
+  const a12 = ah.findIndex(h => />12 ho/i.test(String(h)));
+  const aTot = ah.findIndex(h => /^Total Attendances$/i.test(String(h).trim()));
+  const aeByMonth = {};
+  for (const r of perf) if (typeof r[1] === 'number' && typeof r[allPct] === 'number') (aeByMonth[ymOf(r[1])] = aeByMonth[ymOf(r[1])] || {}).pct4 = Math.round(r[allPct] * 1000) / 10;
+  for (const r of act) if (typeof r[1] === 'number') { const k = ymOf(r[1]); aeByMonth[k] = aeByMonth[k] || {}; if (typeof r[a12] === 'number') aeByMonth[k].over12 = r[a12]; if (typeof r[aTot] === 'number') aeByMonth[k].attendances = r[aTot]; }
+  const aeMonths = Object.keys(aeByMonth).filter(k => aeByMonth[k].pct4 != null || aeByMonth[k].attendances != null).sort();
+  const out = {
+    builtAt: new Date().toISOString(),
+    rtt: {
+      source: { title: 'NHS England, consultant-led Referral to Treatment (RTT) waiting times', page: `${NHS_STATS}/rtt-waiting-times/`, file: rttUrl },
+      months: rttRows.map(r => ymOf(r[2])),
+      // People waiting (the column says millions but some editions hold the full count).
+      total: rttRows.map(r => Math.round(num(r[C.total]) < 1000 ? num(r[C.total]) * 1e6 : num(r[C.total]))),
+      pct18: rttRows.map(r => (num(r[C.pct18]) == null ? null : Math.round(r[C.pct18] * 1000) / 10)),
+      over52: rttRows.map(r => num(r[C.over52])),
+      median: rttRows.map(r => (num(r[C.median]) == null ? null : Math.round(r[C.median] * 10) / 10)),
+    },
+    ae: {
+      source: { title: 'NHS England, A&E attendances and emergency admissions', page: `${NHS_STATS}/ae-waiting-times-and-activity/`, file: ae },
+      months: aeMonths, pct4: aeMonths.map(k => aeByMonth[k].pct4 ?? null), over12: aeMonths.map(k => aeByMonth[k].over12 ?? null), attendances: aeMonths.map(k => aeByMonth[k].attendances ?? null),
+    },
+  };
+  fs.writeFileSync(path.join(OUT, 'nhs.json'), JSON.stringify(out));
+  console.log(`Wrote nhs.json (RTT ${out.rtt.months[0]} to ${out.rtt.months.at(-1)}; A&E ${aeMonths[0]} to ${aeMonths.at(-1)})`);
+}
+
+// Home Office: small boat arrivals (weekly time series) and asylum claims awaiting a decision.
+async function buildBorder() {
+  console.log('Downloading Home Office small boats and asylum backlog…');
+  const sb = await getJson('https://www.gov.uk/api/content/government/publications/migrants-detected-crossing-the-english-channel-in-small-boats');
+  const ts = sb.details.attachments.find(a => /time series/i.test(a.title) && /\.ods$/i.test(a.url));
+  const wb = XLSX.read(Buffer.from(await (await politeFetch(ts.url)).arrayBuffer()));
+  const daily = XLSX.utils.sheet_to_json(wb.Sheets.SB_01, { header: 1, defval: '' }).filter(r => typeof r[0] === 'number');
+  const iso = s => { const d = XLSX.SSF.parse_date_code(s); return `${d.y}-${String(d.m).padStart(2, '0')}-${String(d.d).padStart(2, '0')}`; };
+  const days = daily.map(r => ({ date: iso(r[0]), people: Number(r[1]) || 0, boats: Number(r[2]) || 0 }));
+  const months = {};
+  for (const d of days) { const k = d.date.slice(0, 7); const m = months[k] || (months[k] = { people: 0, boats: 0 }); m.people += d.people; m.boats += d.boats; }
+
+  const tables = await getJson('https://www.gov.uk/api/content/government/statistical-data-sets/immigration-system-statistics-data-tables');
+  const aw = tables.details.attachments.find(a => /awaiting a decision/i.test(a.title));
+  const awb = XLSX.read(Buffer.from(await (await politeFetch(aw.url)).arrayBuffer()), { dense: true });
+  const data = XLSX.utils.sheet_to_json(awb.Sheets[awb.SheetNames.find(n => /^Data_/.test(n))], { header: 1, defval: '' });
+  const h = data.findIndex(r => r[0] === 'Date (as at...)');
+  const H = data[h], ci = n => H.indexOf(n);
+  const backlog = {};
+  for (const r of data.slice(h + 1)) {
+    const k = r[ci('Date (as at...)')]; if (!k) continue;
+    const b = backlog[k] || (backlog[k] = { total: 0, initial: 0, mains: 0, over6m: 0 });
+    const n = Number(r[ci('Claims')]) || 0;
+    b.total += n;
+    if (/initial decision/i.test(r[ci('Application stage')])) { b.initial += n; if (!/less than 3 months|3 months to less than 6/i.test(r[ci('Duration')])) b.over6m += n; }
+    if (/Main/i.test(r[ci('Applicant type')])) b.mains += n;
+  }
+  const toIso = s => new Date(`${s} UTC`).toISOString().slice(0, 10);
+  const bk = Object.keys(backlog).sort((a, b) => toIso(a).localeCompare(toIso(b)));
+  const out = {
+    builtAt: new Date().toISOString(),
+    boats: { source: { title: 'Home Office, migrants detected crossing the English Channel in small boats', page: 'https://www.gov.uk/government/publications/migrants-detected-crossing-the-english-channel-in-small-boats', updated: sb.public_updated_at }, latest: days.at(-1).date,
+      // Arrivals from 1 January to the same day as the latest figures, for each year (fair year-to-date comparisons).
+      ytd: Object.fromEntries([...new Set(days.map(d => d.date.slice(0, 4)))].map(y => [y, days.filter(d => d.date.startsWith(y) && d.date.slice(5) <= days.at(-1).date.slice(5)).reduce((t, d) => t + d.people, 0)])),
+      months: Object.keys(months).sort().map(k => ({ month: k, ...months[k] })), last30: days.slice(-30) },
+    backlog: { source: { title: 'Home Office, immigration system statistics: asylum claims awaiting a decision (Asy_D03)', page: 'https://www.gov.uk/government/statistical-data-sets/immigration-system-statistics-data-tables' }, quarters: bk.map(k => ({ date: toIso(k), ...backlog[k] })) },
+  };
+  fs.writeFileSync(path.join(OUT, 'border.json'), JSON.stringify(out));
+  console.log(`Wrote border.json (boats to ${out.boats.latest}; asylum backlog to ${out.backlog.quarters.at(-1).date})`);
+}
+
+// DfE Explore Education Statistics API: class sizes and free school meals by council.
+const DFE_API = 'https://api.education.gov.uk/statistics/v1';
+async function dfeCsv(datasetId) {
+  const r = await politeFetch(`${DFE_API}/data-sets/${datasetId}/csv`);
+  let buf = Buffer.from(await r.arrayBuffer());
+  if (buf[0] === 0x1f && buf[1] === 0x8b) buf = require('zlib').gunzipSync(buf);
+  const wb = XLSX.read(buf.toString('utf8'), { type: 'string', raw: true });
+  return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '', raw: false });
+}
+
+async function buildSchools() {
+  console.log('Downloading DfE schools data…');
+  const pub = (await getJson(`${DFE_API}/publications?search=schools%20pupils%20and%20their%20characteristics&pageSize=5`)).results.find(p => /characteristics/i.test(p.title));
+  const sets = [];
+  for (let page = 1; ; page++) {
+    const d = await getJson(`${DFE_API}/publications/${pub.id}/data-sets?pageSize=20&page=${page}`);
+    sets.push(...d.results);
+    if (page >= d.paging.totalPages) break;
+  }
+  const find = re => sets.find(s => re.test(s.title))?.id;
+  const cs = await dfeCsv(find(/^Class sizes/i));
+  const fsm = await dfeCsv(find(/number of pupils by fsm/i));
+  const yr = p => `20${String(p).slice(2, 4)}/${String(p).slice(4)}`;
+  const areas = {}, national = {};
+  const area = r => (r.geographic_level === 'National' ? (national[r.time_period] = national[r.time_period] || {}) : r.geographic_level === 'Local authority' ? ((areas[r.new_la_code] = areas[r.new_la_code] || { name: r.la_name, region: r.region_name, years: {} }).years[r.time_period] = areas[r.new_la_code].years[r.time_period] || {}) : null);
+  for (const r of cs) {
+    const a = area(r); if (!a) continue;
+    const phase = /Infant|Junior|primary|KS1|KS2/i.test(r.class_type) ? 'primary' : /secondary/i.test(r.class_type) ? 'secondary' : null;
+    if (!phase || !/Total/i.test(r.class_size) && !/^(1 to 30|31 to 35|36 or more|31\+)/i.test(r.class_size)) continue;
+    const p = a[phase] || (a[phase] = { classes: 0, pupils: 0, big: 0 });
+    if (/Total/i.test(r.class_size)) continue;
+    const pupils = Number(r.pupil_count) || 0;
+    p.classes += Number(r.class_count) || 0; p.pupils += pupils;
+    if (!/^1 to 30/.test(r.class_size)) p.big += pupils;
+  }
+  for (const r of fsm) {
+    if (!/^Total$/i.test(r.phase_type_grouping) || r.fsm_breakdown !== 'All pupils') continue;
+    const a = area(r); if (!a) continue;
+    if (r.fsm_eligibility === 'FSM eligible') a.fsm = Number(r.pupil_percent);
+    if (/^Total$/i.test(r.fsm_eligibility)) a.allPupils = Number(r.pupil_count);
+  }
+  const fin = y => Object.fromEntries(['primary', 'secondary'].filter(ph => y[ph]?.classes).map(ph => [ph, { avg: Math.round(y[ph].pupils / y[ph].classes * 10) / 10, over30: Math.round(y[ph].big / y[ph].pupils * 1000) / 10 }]));
+  const years = Object.keys(national).sort();
+  const latest = years.at(-1);
+  const out = {
+    builtAt: new Date().toISOString(),
+    source: { title: `DfE, ${pub.title}`, page: `https://explore-education-statistics.service.gov.uk/find-statistics/${pub.slug}` },
+    years: years.map(yr), latest: yr(latest),
+    national: years.map(y => ({ year: yr(y), ...fin(national[y]), fsm: national[y].fsm ?? null, pupils: national[y].allPupils ?? null })),
+    areas: Object.entries(areas).filter(([, a]) => a.years[latest]).map(([code, a]) => {
+      const now = a.years[latest], first = a.years[years[0]] || {};
+      return { code, name: a.name, region: a.region, ...fin(now), fsm: now.fsm ?? null, fsmThen: first.fsm ?? null, pupils: now.allPupils ?? null };
+    }).sort((x, y) => x.name.localeCompare(y.name)),
+  };
+  fs.writeFileSync(path.join(OUT, 'schools.json'), JSON.stringify(out));
+  console.log(`Wrote schools.json (${out.areas.length} councils, ${out.years[0]} to ${out.latest})`);
+}
+
+// ---------------------------------------------------------------- ministers' gifts & hospitality
+// Cabinet Office monthly register (one CSV of gifts and one of hospitality per department).
+async function buildMinisters() {
+  console.log('Downloading the Register of Ministers’ Gifts and Hospitality…');
+  const coll = await getJson('https://www.gov.uk/api/content/government/collections/register-of-ministers-gifts-and-hospitality');
+  const docs = (coll.links.documents || []).map(d => d.base_path);
+  const parseCsv = text => XLSX.utils.sheet_to_json(XLSX.read(text.replace(/^﻿/, ''), { type: 'string', raw: true }).Sheets.Sheet1, { header: 1, defval: '' });
+  const money = v => { const m = String(v).replace(/,/g, '').match(/£?\s*(\d+(?:\.\d+)?)/); return m && !/unknown/i.test(v) ? Number(m[1]) : null; };
+  const isoDate = v => { const s = String(v).trim(); let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return `${m[1]}-${m[2]}-${m[3]}`; m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`; return null; };
+  const entries = [];
+  for (const p of docs) {
+    const doc = await getJson(`https://www.gov.uk/api/content${p}`);
+    const period = doc.title.replace(/^Register of Ministers.\s*Gifts and Hospitality:\s*/i, '');
+    for (const a of doc.details.attachments || []) {
+      if (!/\.csv$/i.test(a.url)) continue;
+      const kind = /hospitality/i.test(a.title) ? 'hospitality' : /gift/i.test(a.title) ? 'gift' : null;
+      if (!kind) continue;
+      const dept = a.title.split(/\s+[-–]\s*|:\s/)[0].trim();
+      let rows;
+      try { rows = parseCsv(await getText(a.url)); } catch { continue; }
+      const head = rows[0].map(h => String(h).trim().toLowerCase());
+      const c = re => head.findIndex(h => re.test(h));
+      const iM = c(/^minister/), iD = c(/^date/), iFrom = kind === 'gift' ? c(/who gift|given to or received from/) : c(/individual or organisation/),
+        iWhat = kind === 'gift' ? c(/^gift$/) : c(/type of hospitality/), iVal = c(/value/), iDir = c(/given or received/), iOut = c(/outcome/), iGuest = c(/guest/);
+      for (const r of rows.slice(1)) {
+        // Skip nil returns and the footnotes some departments add under the table.
+        if (!r[iM] || /nil return/i.test(r[iD]) || /nil return/i.test(r[iFrom]) || String(r[iM]).length > 80 || (!isoDate(r[iD]) && !String(r[iFrom] || '').trim())) continue;
+        entries.push({
+          kind, period, dept, minister: String(r[iM]).trim(), date: isoDate(r[iD]), from: String(r[iFrom] || '').trim(), what: String(r[iWhat] || '').trim(),
+          value: money(r[iVal]), valueText: String(r[iVal] || '').trim(), direction: iDir >= 0 ? String(r[iDir]).trim() : '', outcome: iOut >= 0 ? String(r[iOut]).trim() : '', guest: iGuest >= 0 ? String(r[iGuest]).trim() : '',
+        });
+      }
+    }
+  }
+  entries.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const out = {
+    builtAt: new Date().toISOString(),
+    source: { title: 'Cabinet Office, Register of Ministers’ Gifts and Hospitality', page: 'https://www.gov.uk/government/collections/register-of-ministers-gifts-and-hospitality' },
+    periods: docs.length, entries,
+  };
+  fs.writeFileSync(path.join(OUT, 'ministers.json'), JSON.stringify(out));
+  console.log(`Wrote ministers.json (${entries.length} entries from ${docs.length} monthly registers)`);
+}
+
 // `npm run build-data -- immigration` (or `-- spending`, `-- mps`) rebuilds just that file.
-if (process.argv[2] === 'food') {
+const ONLY = { living: buildLiving, nhs: buildNhs, border: buildBorder, schools: buildSchools, ministers: buildMinisters };
+if (ONLY[process.argv[2]]) {
+  ONLY[process.argv[2]]().catch(e => { console.error(e); process.exit(1); });
+} else if (process.argv[2] === 'food') {
   buildFood().catch(e => { console.error(e); process.exit(1); });
 } else if (process.argv[2] === 'fuel') {
   buildFuel().catch(e => { console.error(e); process.exit(1); });

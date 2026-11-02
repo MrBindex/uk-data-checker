@@ -1,0 +1,43 @@
+# Rebuilds the downloaded data files (public/data/*.json) from the official sources every week
+# and commits any changes, so pump prices, small boats, donations and the rest stay current.
+# Live pages (ONS series, bulletins, DWP) don't need this. No secrets are used: the DWP key
+# stays on the server that runs the site.
+name: Refresh official data
+
+on:
+  schedule:
+    - cron: '30 6 * * 2' # Tuesdays 06:30 UTC (after DESNZ's Monday fuel prices)
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Rebuild data files
+        # A source that is down keeps its previous file; commit whatever did update.
+        run: npm run build-data || echo "::warning::Some sources failed to refresh — see the log above."
+      - name: Commit changes
+        run: |
+          if git diff --quiet -- public/data; then
+            echo "No data changes."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/data
+          git commit -m "Refresh official data ($(date -u +%Y-%m-%d))"
+          git push

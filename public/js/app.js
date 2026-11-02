@@ -115,6 +115,9 @@ const HEADLINES = [
 // ---------------------------------------------------------------- router
 const routes = {
   '': home, search, series, areas, area, regions, guide, map: mapPage, bulletins: bulletinsPage, read: readPage, spending: spendingPage, revenue: revenuePage, bills: billsPage, debt: debtPage, parties: partiesPage, donations: donationsPage, food: foodPage, fuel: fuelPage,
+  wages: wagesPage, 'my-inflation': myInflationPage, mortgages: mortgagesPage, 'council-tax': councilTaxPage,
+  nhs: nhsPage, schools: schoolsPage, border: borderPage, pledges: pledgesPage, ministers: ministersPage,
+  check: checkPage, new: whatsNewPage, embed: embedPage, postcode: postcodePage, compare: comparePage,
 };
 async function router() {
   const [pathPart, qs] = location.hash.replace(/^#\/?/, '').split('?');
@@ -123,6 +126,7 @@ async function router() {
   document.querySelectorAll('[data-nav]').forEach(a => a.classList.toggle('active', a.dataset.nav === page || (page === 'area' && a.dataset.nav === 'areas') || (page === 'series' && a.dataset.nav === 'search') || (page === 'read' && a.dataset.nav === 'bulletins')));
   document.querySelectorAll('[data-nav-any]').forEach(b => b.classList.toggle('active', b.dataset.navAny.split(',').includes(page)));
   closeNavMenus();
+  document.body.classList.toggle('embed-mode', page === 'embed');
   const fn = routes[page] || home;
   hideTooltip();
   window.scrollTo(0, 0);
@@ -327,13 +331,28 @@ async function series(params) {
       </div>
       <div class="card"><h3>Check it yourself</h3>
         <p class="small">Open the original page on the ONS website or download the full figures.</p>
-        <div class="controls">${(d.relatedDocuments || []).filter(r => /\/(bulletins|articles)\//.test(r.uri)).slice(0, 1).map(r => `<a class="btn primary" href="#/read?uri=${encodeURIComponent(r.uri)}">Read the bulletin</a>`).join('')}<a class="btn" href="${esc(onsUrl)}" target="_blank" rel="noopener">View on ONS ↗</a><a class="btn ghost" href="${esc(csvUrl)}" target="_blank" rel="noopener">Download CSV</a><button class="btn ghost" type="button" id="copyCite">Copy citation</button></div>
+        <div class="controls">${(d.relatedDocuments || []).filter(r => /\/(bulletins|articles)\//.test(r.uri)).slice(0, 1).map(r => `<a class="btn primary" href="#/read?uri=${encodeURIComponent(r.uri)}">Read the bulletin</a>`).join('')}<a class="btn" href="${esc(onsUrl)}" target="_blank" rel="noopener">View on ONS ↗</a><a class="btn ghost" href="${esc(csvUrl)}" target="_blank" rel="noopener">Download CSV</a><button class="btn ghost" type="button" id="copyCite">Copy citation</button><button class="btn ghost" type="button" id="shareImg">Share as image</button><button class="btn ghost" type="button" id="embedBtn">Embed this chart</button></div>
+        <div id="embedBox" hidden><p class="small" style="margin:12px 0 6px">Copy this code into your website or blog. The chart updates itself when the ONS publishes new figures.</p><textarea class="select embed-code" readonly rows="3" id="embedCode"></textarea></div>
       </div>
     </div>`;
 
   document.getElementById('copyCite').onclick = async e => {
     const text = `${desc.title}. Office for National Statistics, series ${desc.cdid} (${desc.datasetId}), released ${date(desc.releaseDate)}. ${onsUrl}`;
     try { await navigator.clipboard.writeText(text); e.target.textContent = 'Copied ✓'; } catch { prompt('Copy this citation:', text); }
+  };
+
+  document.getElementById('embedBtn').onclick = () => {
+    const box = document.getElementById('embedBox'), code = document.getElementById('embedCode');
+    const src = `${location.origin}${location.pathname}#/embed?uri=${encodeURIComponent(uri)}&freq=${freq}&range=${range}`;
+    code.value = `<iframe src="${src}" width="100%" height="420" style="border:0;max-width:760px" title="${desc.title.replace(/"/g, '&quot;')} (UK Data Checker)" loading="lazy"></iframe>`;
+    box.hidden = false; code.select();
+  };
+  document.getElementById('shareImg').onclick = async () => {
+    const pts = seriesPoints(d, freq).filter(p => p.value != null);
+    const fmt = unitFormatter(desc, decimalsOf(pts.slice(-60)));
+    const btn = document.createElement('button');
+    btn.dataset.share = JSON.stringify({ title: desc.title, value: fmt(pts.at(-1).value), sub: pts.at(-1).label, source: `ONS, series ${desc.cdid}`, url: onsUrl, values: pts.slice(freq === 'months' ? -60 : -20).map(p => p.value) });
+    document.body.appendChild(btn); btn.click(); btn.remove();
   };
 
   const draw = () => {
@@ -679,8 +698,11 @@ function guide() {
     <div class="page-head"><span class="kicker">Fact-check guide</span><h1>How to spot misleading statistics</h1>
     <p class="lead">Numbers are often shared without context — sometimes by mistake, sometimes on purpose. Before you believe or share a statistic, ask these questions.</p></div>
     <div class="grid two tips" style="margin-top:20px">${tips.map(([t, b]) => `<div class="card tip"><h3>${esc(t)}</h3><p class="small" style="margin:0">${esc(b)}</p></div>`).join('')}</div>
-    <section class="section"><h2>Check a claim now</h2>${searchForm()}
+    ${misleadingChartsHtml()}
+    <section class="section"><h2>Check a claim now</h2><p><a class="btn primary" href="#/check">Open the claim checker →</a></p>${searchForm()}
     <p class="small muted">Or look up <a href="#/areas">your local area</a>, or <a href="#/regions">tax and spending by region</a>. You can also use the independent fact-checker <a href="https://fullfact.org" target="_blank" rel="noopener">Full Fact</a>, or the <a href="https://osr.statisticsauthority.gov.uk" target="_blank" rel="noopener">Office for Statistics Regulation</a>, which challenges misuse of official statistics.</p></section>`;
+  drawMisleadingCharts();
+  onRedraw(drawMisleadingCharts);
 }
 
 // ---------------------------------------------------------------- header dropdown menus
